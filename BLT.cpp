@@ -1,6 +1,7 @@
 #include <iostream>
 #include <algorithm>
 #include <vector>
+#include <ctime>
 using namespace std;
 
 class BloomLookupTable {
@@ -12,8 +13,8 @@ private:
     vector<int> valuesum;
 
 public:
-    BloomLookupTable(int n, int k, int m, int string_size) : n(n), m(m), string_size(string_size) {
-        k = 0.6931 * m / n;
+    BloomLookupTable(int n, int m, int string_size) : n(n), m(m), string_size(string_size) {
+        k = 0.7 * m / n;
         count.resize(m, 0);
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
@@ -21,7 +22,7 @@ public:
     }
     void insert(string x, int y) {
         for (char i = '!'; i < (char)('!' + k); i++) {
-            int k_hash = hash<string>{}(x + i);
+            int k_hash = hash<string>{}(x + i) % m;
 
             string x_xor(x.size(), ' ');
             transform(x.begin(), x.end(), keyxor[k_hash].begin(), x_xor.begin(),
@@ -35,7 +36,7 @@ public:
 
     void remove(string x, int y) {
         for (char i = '!'; i < (char)('!' + k); i++) {
-            int k_hash = hash<string>{}(x + i);
+            int k_hash = hash<string>{}(x + i) % m;
 
             string x_xor(x.size(), ' ');
             transform(x.begin(), x.end(), keyxor[k_hash].begin(), x_xor.begin(),
@@ -49,8 +50,9 @@ public:
 
     int get(string x) { // -1 if there is no such key with high probability, -2 if it's 100%
         for (char i = '!'; i < (char)('!' + k); i++) {
-            int k_hash = hash<string>{}(x + i);
+            int k_hash = hash<string>{}(x + i) % m;
             string empty_string(string_size, 0);
+
             if (count[k_hash] == 0 && keyxor[k_hash] == empty_string) {
                 return -2;
             }
@@ -72,4 +74,67 @@ public:
         }
     }
 
+    void stress_test_insert_get(int number_of_keys) {
+        srand((int)time(0));
+
+        string alphanum =
+                "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        vector<string> keys_rand;
+        vector<int> values_rand;
+        for (int i = 0; i < number_of_keys; i++) {
+            string s;
+            for (int j = 0; j < string_size; j++) {
+                s += alphanum[rand() % alphanum.size()];
+            }
+            int v = rand();
+            insert(s, v);
+            // cout << s << ' ' << v << endl;
+            keys_rand.push_back(s);
+            values_rand.push_back(v);
+        }
+        //cout << "test....." << endl;
+        for (int i = 0; i < keys_rand.size(); i++) {
+            cout << keys_rand[i] << ' ' << get(keys_rand[i]) << ' ' << values_rand[i] << endl;
+            if (get(keys_rand[i]) != values_rand[i]) {
+                cout << "mistake" << endl;
+                return;
+                //return false;
+            }
+        }
+        cout << "ok" << endl;
+        //return true;
+    }
+
 };
+
+int main() {
+    auto B = BloomLookupTable(20, 100, 3);
+    B.insert("abc", 179);
+    B.insert("bcd", 23);
+    B.insert("mas", 12);
+    B.insert("wtf", 57);
+
+    cout << B.get("abc") << endl;
+    cout << B.get("bcd") << endl;
+
+    vector<string> ok; vector<int> ov;
+    // B.remove("mas", 12);
+    B.list_entries(ok, ov);
+    for (auto& elem : ok) {
+        cout << elem << endl;
+    }
+    cout << '!' << endl;
+    for (auto& elem : ov) {
+        cout << elem << endl;
+    }
+    cout << endl;
+
+
+    // auto NEW_B = BloomLookupTable(20, 100, 3);
+    //B.stress_test_insert_get(10);
+    for (int i = 0; i < 10; i++) {
+        B.stress_test_insert_get(10);
+        ok.clear(); ov.clear();
+        B.list_entries(ok, ov);
+    }
+}
