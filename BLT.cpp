@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <vector>
 #include <ctime>
+#include <random>
+#include <cassert>
 using namespace std;
 
 class BloomLookupTable {
@@ -14,7 +16,7 @@ private:
 
 public:
     BloomLookupTable(int n, int m, int string_size) : n(n), m(m), string_size(string_size) {
-        k = 0.7 * m / n;
+        k = m / n;
         count.resize(m, 0);
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
@@ -53,7 +55,7 @@ public:
             int k_hash = hash<string>{}(x + i) % m;
             string empty_string(string_size, 0);
 
-            if (count[k_hash] == 0 && keyxor[k_hash] == empty_string) {
+            if (count[k_hash] == 0 && (keyxor[k_hash] == empty_string)) {
                 return -2;
             }
             if (count[k_hash] == 1 && keyxor[k_hash] == x) {
@@ -105,6 +107,82 @@ public:
         //return true;
     }
 
+    void stress_test_better_random(int number_of_keys, int iteration_number) {
+        random_device rd;
+        mt19937 gen32(iteration_number);
+
+        string alphanum =
+                "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        vector<string> keys_rand;
+        vector<int> values_rand;
+        for (int i = 0; i < number_of_keys; i++) {
+            string s;
+            for (int j = 0; j < string_size; j++) {
+                s += alphanum[gen32() % alphanum.size()];
+            }
+            int v = gen32();
+            insert(s, v);
+            // cout << s << ' ' << v << endl;
+            keys_rand.push_back(s);
+            values_rand.push_back(v);
+        }
+        //cout << "test....." << endl;
+        for (int i = 0; i < keys_rand.size(); i++) {
+            // cout << keys_rand[i] << ' ' << get(keys_rand[i]) << ' ' << values_rand[i] << endl;
+            if (get(keys_rand[i]) != values_rand[i]) {
+                cout << "mistake" << endl;
+                return;
+                //return false;
+            }
+        }
+        cout << "ok" << endl;
+        //return true;
+    }
+
+    void stress_test_list_entries(int number_of_keys, int iteration_number) {
+        random_device rd;
+        mt19937 gen32(iteration_number);
+
+        string alphanum =
+                "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        vector<string> keys_rand;
+        vector<int> values_rand;
+        for (int i = 0; i < number_of_keys; i++) {
+            string s;
+            for (int j = 0; j < string_size; j++) {
+                s += alphanum[gen32() % alphanum.size()];
+            }
+            int v = gen32();
+            insert(s, v);
+            // cout << s << ' ' << v << endl;
+            keys_rand.push_back(s);
+            values_rand.push_back(v);
+        }
+        //cout << "test....." << endl;
+        vector<string> keys_output;
+        vector<int> values_output;
+        list_entries(keys_output, values_output);
+        //for (auto& elem : keys_output) {
+        //    cout << elem << ' ';
+        //}
+        //cout << endl;
+
+        //for (auto& elem : keys_rand) {
+        //    cout << elem << ' ';
+        //}
+        //cout << endl;
+        for (int i = 0; i < keys_rand.size(); i++) {
+            //cout << keys_rand[i] << ' ' << get(keys_rand[i]) << ' ' << values_rand[i] << endl;
+            if (find(keys_output.begin(), keys_output.end(), keys_rand[i]) == keys_output.end()) {
+                cout << "mistake" << endl;
+                return;
+                //return false;
+            }
+        }
+        cout << "ok" << endl;
+        //return true;
+    }
+
 };
 
 int main() {
@@ -114,10 +192,12 @@ int main() {
     B.insert("mas", 12);
     B.insert("wtf", 57);
 
+    vector<string> ok; vector<int> ov;
+
     cout << B.get("abc") << endl;
     cout << B.get("bcd") << endl;
 
-    vector<string> ok; vector<int> ov;
+    //vector<string> ok; vector<int> ov;
     // B.remove("mas", 12);
     B.list_entries(ok, ov);
     for (auto& elem : ok) {
@@ -133,8 +213,9 @@ int main() {
     // auto NEW_B = BloomLookupTable(20, 100, 3);
     //B.stress_test_insert_get(10);
     for (int i = 0; i < 10; i++) {
-        B.stress_test_insert_get(10);
-        ok.clear(); ov.clear();
-        B.list_entries(ok, ov);
+        auto B1 = BloomLookupTable(1000, 80000, 3);
+        //B1.stress_test_better_random(20, i);
+        B1.stress_test_list_entries(1000, i + 1);
     }
+
 }
