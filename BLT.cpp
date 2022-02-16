@@ -16,7 +16,7 @@ private:
 
 public:
     BloomLookupTable(int n, int m, int string_size) : n(n), m(m), string_size(string_size) {
-        k = m / n;
+        k = 0.7 * m / n;
         count.resize(m, 0);
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
