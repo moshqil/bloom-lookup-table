@@ -4,19 +4,19 @@
 #include <ctime>
 #include <random>
 #include <cassert>
+
 using namespace std;
 
 class BloomLookupTable {
 private:
-    int n; int m; int k;
+    int n, m, k;
     int string_size;
     vector<int> count;
     vector<string> keyxor;
     vector<int> valuesum;
 
 public:
-    BloomLookupTable(int n, int m, int string_size) : n(n), m(m), string_size(string_size) {
-        k = 0.7 * m / n;
+    BloomLookupTable(int n, int m, int k, int string_size) : n(n), m(m), k(k), string_size(string_size) {
         count.resize(m, 0);
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
@@ -76,37 +76,6 @@ public:
         }
     }
 
-    void stress_test_insert_get(int number_of_keys) {
-        srand((int)time(0));
-
-        string alphanum =
-                "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        vector<string> keys_rand;
-        vector<int> values_rand;
-        for (int i = 0; i < number_of_keys; i++) {
-            string s;
-            for (int j = 0; j < string_size; j++) {
-                s += alphanum[rand() % alphanum.size()];
-            }
-            int v = rand();
-            insert(s, v);
-            // cout << s << ' ' << v << endl;
-            keys_rand.push_back(s);
-            values_rand.push_back(v);
-        }
-        //cout << "test....." << endl;
-        for (int i = 0; i < keys_rand.size(); i++) {
-            cout << keys_rand[i] << ' ' << get(keys_rand[i]) << ' ' << values_rand[i] << endl;
-            if (get(keys_rand[i]) != values_rand[i]) {
-                cout << "mistake" << endl;
-                return;
-                //return false;
-            }
-        }
-        cout << "ok" << endl;
-        //return true;
-    }
-
     void stress_test_better_random(int number_of_keys, int iteration_number) {
         random_device rd;
         mt19937 gen32(iteration_number);
@@ -122,21 +91,16 @@ public:
             }
             int v = gen32();
             insert(s, v);
-            // cout << s << ' ' << v << endl;
             keys_rand.push_back(s);
             values_rand.push_back(v);
         }
-        //cout << "test....." << endl;
         for (int i = 0; i < keys_rand.size(); i++) {
-            // cout << keys_rand[i] << ' ' << get(keys_rand[i]) << ' ' << values_rand[i] << endl;
             if (get(keys_rand[i]) != values_rand[i]) {
                 cout << "mistake" << endl;
                 return;
-                //return false;
             }
         }
         cout << "ok" << endl;
-        //return true;
     }
 
     void stress_test_list_entries(int number_of_keys, int iteration_number) {
@@ -154,68 +118,60 @@ public:
             }
             int v = gen32();
             insert(s, v);
-            // cout << s << ' ' << v << endl;
             keys_rand.push_back(s);
             values_rand.push_back(v);
         }
-        //cout << "test....." << endl;
         vector<string> keys_output;
         vector<int> values_output;
         list_entries(keys_output, values_output);
-        //for (auto& elem : keys_output) {
-        //    cout << elem << ' ';
-        //}
-        //cout << endl;
-
-        //for (auto& elem : keys_rand) {
-        //    cout << elem << ' ';
-        //}
-        //cout << endl;
         for (int i = 0; i < keys_rand.size(); i++) {
-            //cout << keys_rand[i] << ' ' << get(keys_rand[i]) << ' ' << values_rand[i] << endl;
             if (find(keys_output.begin(), keys_output.end(), keys_rand[i]) == keys_output.end()) {
                 cout << "mistake" << endl;
                 return;
-                //return false;
             }
         }
         cout << "ok" << endl;
-        //return true;
     }
 
 };
 
 int main() {
-    auto B = BloomLookupTable(20, 100, 3);
-    B.insert("abc", 179);
-    B.insert("bcd", 23);
-    B.insert("mas", 12);
-    B.insert("wtf", 57);
+    // auto B = BloomLookupTable(20, 100, 3, 3);
+    // B.insert("abc", 179);
+    // B.insert("bcd", 23);
+    // B.insert("mas", 12);
+    // B.insert("wtf", 57);
 
-    vector<string> ok; vector<int> ov;
+    // vector<string> ok; vector<int> ov;
 
-    cout << B.get("abc") << endl;
-    cout << B.get("bcd") << endl;
+    // cout << B.get("abc") << endl;
+    // cout << B.get("bcd") << endl;
 
     //vector<string> ok; vector<int> ov;
     // B.remove("mas", 12);
-    B.list_entries(ok, ov);
-    for (auto& elem : ok) {
-        cout << elem << endl;
-    }
-    cout << '!' << endl;
-    for (auto& elem : ov) {
-        cout << elem << endl;
-    }
-    cout << endl;
+    // B.list_entries(ok, ov);
+    // for (auto& elem : ok) {
+        // cout << elem << endl;
+    // }
+    // cout << '!' << endl;
+    // for (auto& elem : ov) {
+        // cout << elem << endl;
+    // }
+    // cout << endl;
 
-
-    // auto NEW_B = BloomLookupTable(20, 100, 3);
-    //B.stress_test_insert_get(10);
+    time_t time_now = time(nullptr) % 1000; // for better random
+    
+    cout << "List entries (10 tests with 100 pairs and filter of size 150):" << endl;
     for (int i = 0; i < 10; i++) {
-        auto B1 = BloomLookupTable(1000, 80000, 3);
-        //B1.stress_test_better_random(20, i);
-        B1.stress_test_list_entries(1000, i + 1);
+        auto B1 = BloomLookupTable(100, 150, 3, 10);
+        B1.stress_test_list_entries(100, time_now * (i + 1));
+    }
+
+
+    cout << "Insert and get (10 tests with 100 pairs and filter of size 1500):" << endl;
+    for (int i = 10; i < 20; i++) {
+        auto B1 = BloomLookupTable(100, 1500, 10, 10);
+        B1.stress_test_better_random(100, time_now * (i + 1));
     }
 
 }
