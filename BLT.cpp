@@ -4,30 +4,47 @@
 #include <ctime>
 #include <random>
 #include <cassert>
+#include <cstring>
+#include "./smhasher/src/MurmurHash3.h"
+#include "./smhasher/src/MurmurHash3.cpp"
 
 using namespace std;
 
 class BloomLookupTable {
 private:
-    int n, m, k;
-    int string_size;
-    vector<int> count;
+    int64_t n, m, k;
+    int64_t string_size;
+    vector<int64_t> count;
     vector<string> keyxor;
-    vector<int> valuesum;
+    vector<int64_t> valuesum;
 
 public:
-    BloomLookupTable(int n, int m, int k, int string_size) : n(n), m(m), k(k), string_size(string_size) {
+    BloomLookupTable(int64_t n, int m, int k, int string_size) : n(n), m(m), k(k), string_size(string_size) {
         count.resize(m, 0);
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
         valuesum.resize(m, 0);
     }
-    void insert(string x, int y) {
-        for (char i = '!'; i < (char)('!' + k); i++) {
-            int k_hash = hash<string>{}(x + i) % m;
 
-            string x_xor(x.size(), ' ');
-            transform(x.begin(), x.end(), keyxor[k_hash].begin(), x_xor.begin(),
+    BloomLookupTable(int64_t n, double denom, int string_size) : n(n), m(denom * n), k(3), string_size(string_size) {
+        count.resize(m, 0);
+        string empty_string(string_size, 0);
+        keyxor.resize(m, empty_string);
+        valuesum.resize(m, 0);
+    }
+
+    void insert(string x_str, int64_t y) {
+        const char* x = x_str.data();
+        uint64_t hash_otpt[2];
+        for (uint64_t seed = 0; seed < k; seed++) {
+            // int64_t k_hash = hash<string>{}(x + i) % m;
+           
+            string x_xor(x_str.size(), ' ');
+            MurmurHash3_x64_128(x, (uint64_t)(x_str.size()), seed, hash_otpt);
+            uint64_t k_hash = hash_otpt[1] % m;
+
+
+            transform(x_str.begin(), x_str.end(), keyxor[k_hash].begin(), x_xor.begin(),
                       [](char c1, char c2){ return c1 ^ c2; });
 
             count[k_hash] += 1;
@@ -36,12 +53,15 @@ public:
         }
     }
 
-    void remove(string x, int y) {
-        for (char i = '!'; i < (char)('!' + k); i++) {
-            int k_hash = hash<string>{}(x + i) % m;
+    void remove(string x_str, int64_t y) {
+        const char* x = x_str.data();
+        uint64_t hash_otpt[2];
+        for (uint64_t seed = 0; seed < k; seed++) {
+            string x_xor(x_str.size(), ' ');
+            MurmurHash3_x64_128(x, (uint64_t)(x_str.size()), seed, hash_otpt);
+            uint64_t k_hash = hash_otpt[1] % m;
 
-            string x_xor(x.size(), ' ');
-            transform(x.begin(), x.end(), keyxor[k_hash].begin(), x_xor.begin(),
+            transform(x_str.begin(), x_str.end(), keyxor[k_hash].begin(), x_xor.begin(),
                       [](char c1, char c2){ return c1 ^ c2; });
 
             count[k_hash] -= 1;
@@ -50,9 +70,14 @@ public:
         }
     }
 
-    int get(string x) { // -1 if there is no such key with high probability, -2 if it's 100%
-        for (char i = '!'; i < (char)('!' + k); i++) {
-            int k_hash = hash<string>{}(x + i) % m;
+    int64_t get(string x_str) { // -1 if there is no such key with high probability, -2 if it's 100%
+        const char* x = x_str.data();
+        uint64_t hash_otpt[2];
+        for (uint64_t seed = 0; seed < k; seed++) {
+            string x_xor(x_str.size(), ' ');
+            MurmurHash3_x64_128(x, (uint64_t)(x_str.size()), seed, hash_otpt);
+            uint64_t k_hash = hash_otpt[1] % m;
+
             string empty_string(string_size, 0);
 
             if (count[k_hash] == 0 && (keyxor[k_hash] == empty_string)) {
@@ -65,10 +90,10 @@ public:
         return -1;
     }
 
-    void list_entries(vector<string>& output_keys, vector<int>& output_values) {
+    void list_entries(vector<string>& output_keys, vector<int64_t>& output_values) {
         auto it = find(count.begin(), count.end(), 1);
         while (it != count.end()) {
-            int index = it - count.begin();
+            int64_t index = it - count.begin();
             output_keys.push_back(keyxor[index]);
             output_values.push_back(valuesum[index]);
             remove(keyxor[index], valuesum[index]);
@@ -76,25 +101,25 @@ public:
         }
     }
 
-    void stress_test_better_random(int number_of_keys, int iteration_number) {
+    void stress_test_better_random(int64_t number_of_keys, int iteration_number) {
         random_device rd;
         mt19937 gen32(iteration_number);
 
         string alphanum =
                 "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         vector<string> keys_rand;
-        vector<int> values_rand;
-        for (int i = 0; i < number_of_keys; i++) {
+        vector<int64_t> values_rand;
+        for (int64_t i = 0; i < number_of_keys; i++) {
             string s;
-            for (int j = 0; j < string_size; j++) {
+            for (int64_t j = 0; j < string_size; j++) {
                 s += alphanum[gen32() % alphanum.size()];
             }
-            int v = gen32();
+            int64_t v = gen32();
             insert(s, v);
             keys_rand.push_back(s);
             values_rand.push_back(v);
         }
-        for (int i = 0; i < keys_rand.size(); i++) {
+        for (int64_t i = 0; i < keys_rand.size(); i++) {
             if (get(keys_rand[i]) != values_rand[i]) {
                 cout << "mistake" << endl;
                 return;
@@ -103,75 +128,54 @@ public:
         cout << "ok" << endl;
     }
 
-    void stress_test_list_entries(int number_of_keys, int iteration_number) {
+    bool stress_test_list_entries(int64_t number_of_keys, int iteration_number) {
         random_device rd;
         mt19937 gen32(iteration_number);
 
         string alphanum =
                 "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         vector<string> keys_rand;
-        vector<int> values_rand;
-        for (int i = 0; i < number_of_keys; i++) {
+        vector<int64_t> values_rand;
+        for (int64_t i = 0; i < number_of_keys; i++) {
             string s;
-            for (int j = 0; j < string_size; j++) {
+            for (int64_t j = 0; j < string_size; j++) {
                 s += alphanum[gen32() % alphanum.size()];
             }
-            int v = gen32();
+            int64_t v = gen32();
             insert(s, v);
             keys_rand.push_back(s);
             values_rand.push_back(v);
         }
         vector<string> keys_output;
-        vector<int> values_output;
+        vector<int64_t> values_output;
         list_entries(keys_output, values_output);
-        for (int i = 0; i < keys_rand.size(); i++) {
+        for (int64_t i = 0; i < keys_rand.size(); i++) {
             if (find(keys_output.begin(), keys_output.end(), keys_rand[i]) == keys_output.end()) {
-                cout << "mistake" << endl;
-                return;
+                return false;
             }
         }
-        cout << "ok" << endl;
+        return true;
     }
 
 };
 
-int main() {
-    // auto B = BloomLookupTable(20, 100, 3, 3);
-    // B.insert("abc", 179);
-    // B.insert("bcd", 23);
-    // B.insert("mas", 12);
-    // B.insert("wtf", 57);
-
-    // vector<string> ok; vector<int> ov;
-
-    // cout << B.get("abc") << endl;
-    // cout << B.get("bcd") << endl;
-
-    //vector<string> ok; vector<int> ov;
-    // B.remove("mas", 12);
-    // B.list_entries(ok, ov);
-    // for (auto& elem : ok) {
-        // cout << elem << endl;
-    // }
-    // cout << '!' << endl;
-    // for (auto& elem : ov) {
-        // cout << elem << endl;
-    // }
-    // cout << endl;
+int main() {    
 
     time_t time_now = time(nullptr) % 1000; // for better random
-    
-    cout << "List entries (10 tests with 100 pairs and filter of size 150):" << endl;
-    for (int i = 0; i < 10; i++) {
-        auto B1 = BloomLookupTable(100, 150, 3, 10);
-        B1.stress_test_list_entries(100, time_now * (i + 1));
+
+    cout << "Number of TESTS for list entries method stress test:\n";
+    int tests1; cin >> tests1;
+    cout << "Number of PAIRS for list entries method stress test:\n ";
+    int pairs1; cin >> pairs1;
+    cout << "List entries (" << tests1 << " tests with " << pairs1 << " pairs):" << endl;
+    vector<double> denoms = {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2};
+
+    for (double denom : denoms) {
+        int count_ok = 0;
+        for (int64_t i = 0; i < tests1; i++) {
+            auto B1 = BloomLookupTable(pairs1, denom, 5);
+            count_ok += B1.stress_test_list_entries(pairs1, time_now * (i + 1));
+        }
+        cout << "Percentege of successes for ratio " << denom << " is " << count_ok / 10 << "." << count_ok % 10 << endl;
     }
-
-
-    cout << "Insert and get (10 tests with 100 pairs and filter of size 1500):" << endl;
-    for (int i = 10; i < 20; i++) {
-        auto B1 = BloomLookupTable(100, 1500, 10, 10);
-        B1.stress_test_better_random(100, time_now * (i + 1));
-    }
-
 }
