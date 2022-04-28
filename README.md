@@ -7,6 +7,7 @@ TODO:
 
 Результаты тестов на запаковку распаковку множеств в фильтры, где ratio - отношение размера фильтра к количеству пар, а количество хеш-функций всегда 3:
 
+```
 List entries (1000 tests with 1000 pairs):
 Percentage of successes for ratio 1 is 0.0
 Percentage of successes for ratio 1.1 is 0.0
@@ -32,3 +33,4 @@ Percentage of successes for ratio 1.7 is 95.9
 Percentage of successes for ratio 1.8 is 96.3
 Percentage of successes for ratio 1.9 is 97.2
 Percentage of successes for ratio 2 is 97.5
+```
