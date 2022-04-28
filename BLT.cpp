@@ -10,6 +10,16 @@
 
 using namespace std;
 
+struct Listed {
+    vector<string> keys;
+    vector<int64_t> values;
+}
+
+struct Entries {
+    Listed Alice;
+    Listed Bob;
+}
+
 class BloomLookupTable {
 private:
     int64_t n, m, k;
@@ -17,6 +27,7 @@ private:
     vector<int64_t> count;
     vector<string> keyxor;
     vector<int64_t> valuesum;
+    bool is_modified = false;
 
 public:
     BloomLookupTable(int64_t n, int m, int k, int string_size) : n(n), m(m), k(k), string_size(string_size) {
@@ -31,6 +42,21 @@ public:
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
         valuesum.resize(m, 0);
+    }
+
+    BloomLookupTable& operator-=(const BloomLookupTable& other) {
+        is_modified = true;
+        for (uint64_t index = 0; index < m; index++) {
+            count[index] -= other.count[index];
+            
+            string x_xor(x_str.size(), ' ');
+            transform(other.keyxor[index].begin(), other.keyxor[index].end(), keyxor[index].begin(), x_xor.begin(),
+                      [](char c1, char c2){ return c1 ^ c2; });
+            keyxor[index] = x_xor;
+
+            valuesum[index] -= other.valuesum[index];
+        }
+        return *this;
     }
 
     void insert(string x_str, int64_t y) {
@@ -90,14 +116,25 @@ public:
         return -1;
     }
 
-    void list_entries(vector<string>& output_keys, vector<int64_t>& output_values) {
-        auto it = find(count.begin(), count.end(), 1);
-        while (it != count.end()) {
-            int64_t index = it - count.begin();
-            output_keys.push_back(keyxor[index]);
-            output_values.push_back(valuesum[index]);
-            remove(keyxor[index], valuesum[index]);
-            it = find(count.begin(), count.end(), 1);
+    Entries list_entries() {
+        Entries result;
+        auto it_alice = find(count.begin(), count.end(), 1);
+        auto it_bob = find(count.begin(), count.end(), -1);
+        while (it_alice != count.end() && it_bob != count.end()) {
+            int64_t index_alice = it_alice - count.begin();
+            int64_t index_bob = it_bob - count.begin();
+            if (it_alice != count.end()) {
+                result.Alice.keys.push_back(keyxor[index_alice]);
+                result.Alice.values.push_back(valuesum[index_alice]);
+                remove(keyxor[index_alice], valuesum[index_alice]);
+            }
+            if (it_bob != count.end()) {
+                result.Bob.keys.push_back(keyxor[index_bob]);
+                result.Bob.values.push_back(valuesum[index_bob]);
+                insert(keyxor[index_bob], valuesum[index_bob]);
+            }
+            it_alice = find(count.begin(), count.end(), 1);
+            it_bob = find(count.begin(), count.end(), -1);
         }
     }
 
