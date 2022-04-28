@@ -13,31 +13,32 @@ using namespace std;
 struct Listed {
     vector<string> keys;
     vector<int64_t> values;
-}
+};
 
 struct Entries {
     Listed Alice;
     Listed Bob;
-}
+};
 
 class BloomLookupTable {
 private:
     int64_t n, m, k;
+    double denom;
     int64_t string_size;
     vector<int64_t> count;
     vector<string> keyxor;
     vector<int64_t> valuesum;
-    bool is_modified = false;
 
 public:
     BloomLookupTable(int64_t n, int m, int k, int string_size) : n(n), m(m), k(k), string_size(string_size) {
         count.resize(m, 0);
+        denom = (double)m / (double)n;
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
         valuesum.resize(m, 0);
     }
 
-    BloomLookupTable(int64_t n, double denom, int string_size) : n(n), m(denom * n), k(3), string_size(string_size) {
+    BloomLookupTable(int64_t n, double denom, int string_size) : n(n), m(denom * n), denom(denom), k(3), string_size(string_size) {
         count.resize(m, 0);
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
@@ -45,11 +46,10 @@ public:
     }
 
     BloomLookupTable& operator-=(const BloomLookupTable& other) {
-        is_modified = true;
         for (uint64_t index = 0; index < m; index++) {
             count[index] -= other.count[index];
             
-            string x_xor(x_str.size(), ' ');
+            string x_xor(string_size, ' ');
             transform(other.keyxor[index].begin(), other.keyxor[index].end(), keyxor[index].begin(), x_xor.begin(),
                       [](char c1, char c2){ return c1 ^ c2; });
             keyxor[index] = x_xor;
@@ -120,7 +120,7 @@ public:
         Entries result;
         auto it_alice = find(count.begin(), count.end(), 1);
         auto it_bob = find(count.begin(), count.end(), -1);
-        while (it_alice != count.end() && it_bob != count.end()) {
+        while (it_alice != count.end() || it_bob != count.end()) {
             int64_t index_alice = it_alice - count.begin();
             int64_t index_bob = it_bob - count.begin();
             if (it_alice != count.end()) {
@@ -136,6 +136,7 @@ public:
             it_alice = find(count.begin(), count.end(), 1);
             it_bob = find(count.begin(), count.end(), -1);
         }
+        return result;
     }
 
     void stress_test_better_random(int64_t number_of_keys, int iteration_number) {
@@ -183,14 +184,61 @@ public:
             keys_rand.push_back(s);
             values_rand.push_back(v);
         }
-        vector<string> keys_output;
-        vector<int64_t> values_output;
-        list_entries(keys_output, values_output);
+        Entries result = list_entries();
         for (int64_t i = 0; i < keys_rand.size(); i++) {
-            if (find(keys_output.begin(), keys_output.end(), keys_rand[i]) == keys_output.end()) {
+            if (find(result.Alice.keys.begin(), result.Alice.keys.end(), keys_rand[i]) == result.Alice.keys.end()) {
                 return false;
             }
         }
+        return true;
+    }
+    
+   bool stress_test_list_entries_subtraction(int64_t number_of_keys, int iteration_number) {
+        random_device rd;
+        mt19937 gen32(iteration_number);
+
+        string alphanum =
+                "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        vector<string> keys_rand_alice;
+        vector<int64_t> values_rand_alice;
+        for (int64_t i = 0; i < number_of_keys / 2; i++) {
+            string s_alice;
+            for (int64_t j = 0; j < string_size; j++) {
+                s_alice += alphanum[gen32() % alphanum.size()];
+            }
+            int64_t v_alice = gen32();
+            insert(s_alice, v_alice);
+            keys_rand_alice.push_back(s_alice);
+            values_rand_alice.push_back(v_alice);
+        }
+
+        BloomLookupTable bob(n, denom, string_size);
+        vector<string> keys_rand_bob;
+        vector<int64_t> values_rand_bob;
+        for (int64_t i = 0; i < number_of_keys / 2; i++) {
+            string s_bob;
+            for (int64_t j = 0; j < string_size; j++) {
+                s_bob += alphanum[gen32() % alphanum.size()];
+            }
+            int64_t v_bob = gen32();
+            bob.insert(s_bob, v_bob);
+            keys_rand_bob.push_back(s_bob);
+            values_rand_bob.push_back(v_bob);
+        }
+
+        *this -= bob;
+        Entries result = list_entries();
+        for (int64_t i = 0; i < keys_rand_alice.size(); i++) {
+            if (find(result.Alice.keys.begin(), result.Alice.keys.end(), keys_rand_alice[i]) == result.Alice.keys.end()) {
+                return false;
+            }
+        }
+        for (int64_t i = 0; i < keys_rand_bob.size(); i++) {
+            if (find(result.Bob.keys.begin(), result.Bob.keys.end(), keys_rand_bob[i]) == result.Bob.keys.end()) {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -211,8 +259,9 @@ int main() {
         int count_ok = 0;
         for (int64_t i = 0; i < tests1; i++) {
             auto B1 = BloomLookupTable(pairs1, denom, 5);
-            count_ok += B1.stress_test_list_entries(pairs1, time_now * (i + 1));
+            count_ok += B1.stress_test_list_entries_subtraction(pairs1, time_now * (i + 1));
         }
-        cout << "Percentege of successes for ratio " << denom << " is " << count_ok / 10 << "." << count_ok % 10 << endl;
+        double dcount_ok = 100 * (double)count_ok / (double)tests1;
+        cout << "Percentege of successes for ratio " << denom << " is " << dcount_ok << endl;
     }
 }
