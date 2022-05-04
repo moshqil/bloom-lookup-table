@@ -154,7 +154,7 @@ public:
     Entries list_entries() {
         Entries result;
         auto it = find(abs_count.begin(), abs_count.end(), 1);
-        while (it != count.end()) {
+        while (it != abs_count.end()) {
             int64_t index = it - abs_count.begin();
             if (count[index] == 1) {
                 result.Alice.keys.push_back(keyxor[index]);
