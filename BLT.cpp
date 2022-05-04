@@ -31,19 +31,15 @@ private:
 
     string str_xor(string& str1, string& str2) {
         string x_xor(string_size, ' ');
-        
         transform(str1.begin(), str1.end(), str2.begin(), x_xor.begin(),
                 [](char c1, char c2){ return c1 ^ c2; });
-        
         return x_xor;
     }
 
     uint64_t murmurhash(string& x_str, int64_t seed) {
         uint64_t hash_otpt[2];
         const char* x = x_str.data();
-        
         MurmurHash3_x64_128(x, (uint64_t)(x_str.size()), seed, hash_otpt);
-        
         return hash_otpt[1] % m;
     }
 
@@ -64,11 +60,21 @@ public:
         valuexor.resize(m, 0);
     }
 
-    BloomLookupTableSubstracted& operator-=(const BloomLookupTable& other) {
+    BloomLookupTable& operator=(const BloomLookupTable& other) {
+        auto new_blt = BloomLookupTable(n, m, k, string_size);
+        new_blt.count = count;
+        new_blt.keyxor = keyxor;
+        new_blt.valuexor = valuexor;
+        return new_blt;
+    }
+
+    BloomLookupTableSubstracted& operator-(const BloomLookupTable& other) {
+        auto new_blt = BloomLookupTableSubstracted(n, m, k, string_size);
         for (uint64_t i = 0; i < m; i++) {
-            count[i] -= other.count[i];
-            keyxor[i] = str_xor(keyxor[i], other.keyxor[i]);
-            valuexor[i] ^= other.valuexor[i];
+            new_blt.count[i] = count[i] - other.count[i];
+            new_blt.abs_count[i] = count[i] + other.count[i];
+            new_blt.keyxor[i] = str_xor(keyxor[i], other.keyxor[i]);
+            new_blt.valuexor[i] = valuexor[i] ^ other.valuexor[i];
         }
         return *this;
     }
@@ -125,7 +131,16 @@ public:
 class BloomLookupTableSubstracted : public BloomLookupTable {
 private:
     vector<int64_t> abs_count;
-public: 
+public:
+    BloomLookupTableSubstracted(int64_t n, int m, int k, int string_size) : n(n), m(m), k(k), string_size(string_size) {
+        count.resize(m, 0);
+        abs_count.resize(m, 0);
+        denom = (double)m / (double)n;
+        string empty_string(string_size, 0);
+        keyxor.resize(m, empty_string);
+        valuexor.resize(m, 0);
+    }
+
     void insert(string x_str, int64_t y) override {
         for (uint64_t seed = 0; seed < k; seed++) {
             uint64_t k_hash = murmurhash(x_str, seed);
