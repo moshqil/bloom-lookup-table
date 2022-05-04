@@ -27,7 +27,26 @@ private:
     int64_t string_size;
     vector<int64_t> count;
     vector<string> keyxor;
-    vector<int64_t> valuesum;
+    vector<int64_t> valuexor;
+
+    string str_xor(string& str1, string& str2) {
+        string x_xor(string_size, ' ');
+        
+        transform(str1.begin(), str1.end(), str2.begin(), x_xor.begin(),
+                [](char c1, char c2){ return c1 ^ c2; });
+        
+        return x_xor;
+    }
+
+    uint64_t murmurhash(string& x_str, int64_t seed) {
+        uint64_t hash_otpt[2];
+        const char* x = x_str.data();
+        
+        MurmurHash3_x64_128(x, (uint64_t)(x_str.size()), seed, hash_otpt);
+        
+        return hash_otpt[1] % m;
+    }
+
 
 public:
     BloomLookupTable(int64_t n, int m, int k, int string_size) : n(n), m(m), k(k), string_size(string_size) {
@@ -35,233 +54,131 @@ public:
         denom = (double)m / (double)n;
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
-        valuesum.resize(m, 0);
+        valuexor.resize(m, 0);
     }
 
     BloomLookupTable(int64_t n, double denom, int string_size) : n(n), m(denom * n), denom(denom), k(3), string_size(string_size) {
         count.resize(m, 0);
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
-        valuesum.resize(m, 0);
+        valuexor.resize(m, 0);
     }
 
-    BloomLookupTable& operator-=(const BloomLookupTable& other) {
-        for (uint64_t index = 0; index < m; index++) {
-            count[index] -= other.count[index];
-            
-            string x_xor(string_size, ' ');
-            transform(other.keyxor[index].begin(), other.keyxor[index].end(), keyxor[index].begin(), x_xor.begin(),
-                      [](char c1, char c2){ return c1 ^ c2; });
-            keyxor[index] = x_xor;
-
-            valuesum[index] -= other.valuesum[index];
+    BloomLookupTableSubstracted& operator-=(const BloomLookupTable& other) {
+        for (uint64_t i = 0; i < m; i++) {
+            count[i] -= other.count[i];
+            keyxor[i] = str_xor(keyxor[i], other.keyxor[i]);
+            valuexor[i] ^= other.valuexor[i];
         }
         return *this;
     }
 
-    void insert(string x_str, int64_t y) {
-        const char* x = x_str.data();
-        uint64_t hash_otpt[2];
+    virtual void insert(string x_str, int64_t y) {
         for (uint64_t seed = 0; seed < k; seed++) {
-            // int64_t k_hash = hash<string>{}(x + i) % m;
-           
-            string x_xor(x_str.size(), ' ');
-            MurmurHash3_x64_128(x, (uint64_t)(x_str.size()), seed, hash_otpt);
-            uint64_t k_hash = hash_otpt[1] % m;
-
-
-            transform(x_str.begin(), x_str.end(), keyxor[k_hash].begin(), x_xor.begin(),
-                      [](char c1, char c2){ return c1 ^ c2; });
+            uint64_t k_hash = murmurhash(x_str, seed);
 
             count[k_hash] += 1;
-            keyxor[k_hash] = x_xor;
-            valuesum[k_hash] += y;
+            keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
+            valuexor[k_hash] ^= y;
         }
     }
 
-    void remove(string x_str, int64_t y) {
-        const char* x = x_str.data();
-        uint64_t hash_otpt[2];
+    virtual void remove(string x_str, int64_t y) {
         for (uint64_t seed = 0; seed < k; seed++) {
-            string x_xor(x_str.size(), ' ');
-            MurmurHash3_x64_128(x, (uint64_t)(x_str.size()), seed, hash_otpt);
-            uint64_t k_hash = hash_otpt[1] % m;
-
-            transform(x_str.begin(), x_str.end(), keyxor[k_hash].begin(), x_xor.begin(),
-                      [](char c1, char c2){ return c1 ^ c2; });
+            uint64_t k_hash = murmurhash(x_str, seed);
 
             count[k_hash] -= 1;
-            keyxor[k_hash] = x_xor;
-            valuesum[k_hash] -= y;
+            keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
+            valuexor[k_hash] ^= y;
         }
     }
 
-    int64_t get(string x_str) { // -1 if there is no such key with high probability, -2 if it's 100%
-        const char* x = x_str.data();
-        uint64_t hash_otpt[2];
+    virtual int get(string x_str) { // -1 if there is no such key with high probability, -2 if it's 100%
         for (uint64_t seed = 0; seed < k; seed++) {
-            string x_xor(x_str.size(), ' ');
-            MurmurHash3_x64_128(x, (uint64_t)(x_str.size()), seed, hash_otpt);
-            uint64_t k_hash = hash_otpt[1] % m;
+            uint64_t k_hash = murmurhash(x_str, seed);
 
-            string empty_string(string_size, 0);
-
-            if (count[k_hash] == 0 && (keyxor[k_hash] == empty_string)) {
+            if (count[k_hash] == 0) {
                 return -2;
             }
             if (count[k_hash] == 1 && keyxor[k_hash] == x) {
-                return valuesum[k_hash];
+                return valuexor[k_hash];
             }
         }
         return -1;
     }
 
-    Entries list_entries() {
-        Entries result;
-        auto it_alice = find(count.begin(), count.end(), 1);
-        auto it_bob = find(count.begin(), count.end(), -1);
-        while (it_alice != count.end() || it_bob != count.end()) {
-            int64_t index_alice = it_alice - count.begin();
-            int64_t index_bob = it_bob - count.begin();
-            if (it_alice != count.end()) {
-                result.Alice.keys.push_back(keyxor[index_alice]);
-                result.Alice.values.push_back(valuesum[index_alice]);
-                remove(keyxor[index_alice], valuesum[index_alice]);
-            }
-            if (it_bob != count.end()) {
-                result.Bob.keys.push_back(keyxor[index_bob]);
-                result.Bob.values.push_back(valuesum[index_bob]);
-                insert(keyxor[index_bob], valuesum[index_bob]);
-            }
-            it_alice = find(count.begin(), count.end(), 1);
-            it_bob = find(count.begin(), count.end(), -1);
+    virtual Listed list_entries() {
+        Listed result;
+        auto it = find(count.begin(), count.end(), 1);
+        while (it != count.end()) {
+            int64_t index = it - count.begin();
+            result.keys.push_back(keyxor[index]);
+            result.values.push_back(valuexor[index]);
+            remove(keyxor[index], valuexor[index]);
+            it = find(count.begin(), count.end(), 1);
         }
         return result;
     }
-
-    void stress_test_better_random(int64_t number_of_keys, int iteration_number) {
-        random_device rd;
-        mt19937 gen32(iteration_number);
-
-        string alphanum =
-                "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        vector<string> keys_rand;
-        vector<int64_t> values_rand;
-        for (int64_t i = 0; i < number_of_keys; i++) {
-            string s;
-            for (int64_t j = 0; j < string_size; j++) {
-                s += alphanum[gen32() % alphanum.size()];
-            }
-            int64_t v = gen32();
-            insert(s, v);
-            keys_rand.push_back(s);
-            values_rand.push_back(v);
-        }
-        for (int64_t i = 0; i < keys_rand.size(); i++) {
-            if (get(keys_rand[i]) != values_rand[i]) {
-                cout << "mistake" << endl;
-                return;
-            }
-        }
-        cout << "ok" << endl;
-    }
-
-    bool stress_test_list_entries(int64_t number_of_keys, int iteration_number) {
-        random_device rd;
-        mt19937 gen32(iteration_number);
-
-        string alphanum =
-                "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        vector<string> keys_rand;
-        vector<int64_t> values_rand;
-        for (int64_t i = 0; i < number_of_keys; i++) {
-            string s;
-            for (int64_t j = 0; j < string_size; j++) {
-                s += alphanum[gen32() % alphanum.size()];
-            }
-            int64_t v = gen32();
-            insert(s, v);
-            keys_rand.push_back(s);
-            values_rand.push_back(v);
-        }
-        Entries result = list_entries();
-        for (int64_t i = 0; i < keys_rand.size(); i++) {
-            if (find(result.Alice.keys.begin(), result.Alice.keys.end(), keys_rand[i]) == result.Alice.keys.end()) {
-                return false;
-            }
-        }
-        return true;
-    }
-    
-   bool stress_test_list_entries_subtraction(int64_t number_of_keys, int iteration_number) {
-        random_device rd;
-        mt19937 gen32(iteration_number);
-
-        string alphanum =
-                "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        vector<string> keys_rand_alice;
-        vector<int64_t> values_rand_alice;
-        for (int64_t i = 0; i < number_of_keys / 2; i++) {
-            string s_alice;
-            for (int64_t j = 0; j < string_size; j++) {
-                s_alice += alphanum[gen32() % alphanum.size()];
-            }
-            int64_t v_alice = gen32();
-            insert(s_alice, v_alice);
-            keys_rand_alice.push_back(s_alice);
-            values_rand_alice.push_back(v_alice);
-        }
-
-        BloomLookupTable bob(n, denom, string_size);
-        vector<string> keys_rand_bob;
-        vector<int64_t> values_rand_bob;
-        for (int64_t i = 0; i < number_of_keys / 2; i++) {
-            string s_bob;
-            for (int64_t j = 0; j < string_size; j++) {
-                s_bob += alphanum[gen32() % alphanum.size()];
-            }
-            int64_t v_bob = gen32();
-            bob.insert(s_bob, v_bob);
-            keys_rand_bob.push_back(s_bob);
-            values_rand_bob.push_back(v_bob);
-        }
-
-        *this -= bob;
-        Entries result = list_entries();
-        for (int64_t i = 0; i < keys_rand_alice.size(); i++) {
-            if (find(result.Alice.keys.begin(), result.Alice.keys.end(), keys_rand_alice[i]) == result.Alice.keys.end()) {
-                return false;
-            }
-        }
-        for (int64_t i = 0; i < keys_rand_bob.size(); i++) {
-            if (find(result.Bob.keys.begin(), result.Bob.keys.end(), keys_rand_bob[i]) == result.Bob.keys.end()) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
 };
 
-int main() {    
 
-    time_t time_now = time(nullptr) % 1000; // for better random
+class BloomLookupTableSubstracted : public BloomLookupTable {
+private:
+    vector<int64_t> abs_count;
+public: 
+    void insert(string x_str, int64_t y) override {
+        for (uint64_t seed = 0; seed < k; seed++) {
+            uint64_t k_hash = murmurhash(x_str, seed);
 
-    cout << "Number of TESTS for list entries method stress test:\n";
-    int tests1; cin >> tests1;
-    cout << "Number of PAIRS for list entries method stress test:\n ";
-    int pairs1; cin >> pairs1;
-    cout << "List entries (" << tests1 << " tests with " << pairs1 << " pairs):" << endl;
-    vector<double> denoms = {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2};
-
-    for (double denom : denoms) {
-        int count_ok = 0;
-        for (int64_t i = 0; i < tests1; i++) {
-            auto B1 = BloomLookupTable(pairs1, denom, 5);
-            count_ok += B1.stress_test_list_entries_subtraction(pairs1, time_now * (i + 1));
+            count[k_hash] += 1;
+            abs_count[k_hash] += 1;
+            keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
+            valuexor[k_hash] ^= y;
         }
-        double dcount_ok = 100 * (double)count_ok / (double)tests1;
-        cout << "Percentege of successes for ratio " << denom << " is " << dcount_ok << endl;
+    }
+
+    void remove(string x_str, int64_t y) override {
+        for (uint64_t seed = 0; seed < k; seed++) {
+            uint64_t k_hash = murmurhash(x_str, seed);
+
+            count[k_hash] -= 1;
+            abs_count[k_hash] -= 1;
+            keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
+            valuexor[k_hash] ^= y;
+        }
+    }
+
+    int get(string x_str) override { // -1 if there is no such key with high probability, -2 if it's 100%
+        for (uint64_t seed = 0; seed < k; seed++) {
+            uint64_t k_hash = murmurhash(x_str, seed);
+
+            if (abs_count[k_hash] == 0) {
+                return -2;
+            }
+            if (abs_count[k_hash] == 1 && keyxor[k_hash] == x) {
+                return valuexor[k_hash];
+            }
+        }
+        return -1;
+    }
+
+ 
+    Entries list_entries() override {
+        Entries result;
+        auto it = find(abs_count.begin(), abs_count.end(), 1);
+        while (it != count.end()) {
+            int64_t index = it - abs_count.begin();
+            if (count[index] == 1) {
+                result.Alice.keys.push_back(keyxor[index]);
+                result.Alice.values.push_back(valuesum[index]);
+                remove(keyxor[index], valuesum[index]);
+            } else {
+                result.Bob.keys.push_back(keyxor[index]);
+                result.Bob.values.push_back(valuesum[index]);
+                insert(keyxor[index], valuesum[index]);
+            }
+            it = find(abs_count.begin(), abs_count.end(), 1);
+        }
+        return result;
     }
 }
