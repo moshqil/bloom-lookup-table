@@ -1,5 +1,4 @@
-#include <BLT.cpp>
-#include <stress_tests.cpp>
+#include "stress_tests.cpp"
 
 
 int main() {    
@@ -11,15 +10,13 @@ int main() {
     cout << "Number of PAIRS for list entries method stress test:\n ";
     int pairs1; cin >> pairs1;
     cout << "List entries (" << tests1 << " tests with " << pairs1 << " pairs):" << endl;
-    vector<double> denoms = {2.6};
+    vector<double> denoms = {1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0};
 
+    int i = 0;
     for (double denom : denoms) {
-        int count_ok = 0;
-        for (int64_t i = 0; i < tests1; i++) {
-            auto B1 = BloomLookupTable(pairs1, denom, 5);
-            count_ok += B1.stress_test_list_entries_subtraction(pairs1, time_now * (i + 1));
-        }
-        double dcount_ok = 100 * (double)count_ok / (double)tests1;
-        cout << "Percentege of successes for ratio " << denom << " is " << dcount_ok << endl;
+        cout << "Percentege of successes for ratio "
+            << denom << " is " 
+            << stress_test_list_entries(tests1, pairs1, denom * pairs1, 3, 5, i++)
+            << endl;
     }
 }

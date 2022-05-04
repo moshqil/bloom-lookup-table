@@ -1,7 +1,7 @@
-#include <BLT.cpp>
+#include "BLT.cpp"
 
 
-vector<string>& generate_string_vector(int64_t n, 
+vector<string> generate_string_vector(int64_t n, 
         int64_t string_size, int seed) {
     random_device rd;
     mt19937 gen32(seed);
@@ -38,7 +38,7 @@ double stress_test_get(int it_number, int n, int m, int k,
 
     for (int i = 0; i < it_number; i++) {
         auto BLT = BloomLookupTable(n, m, k, string_size);
-        keys = generate_string_vector(n, seed + i);
+        keys = generate_string_vector(n, string_size, seed + i);
         values = generate_number_vector(n, seed + i);
 
         for (int j = 0; j < n; j++) {
@@ -64,7 +64,7 @@ double stress_test_list_entries(int it_number, int n, int m, int k,
 
     for (int i = 0; i < it_number; i++) {
         auto BLT = BloomLookupTable(n, m, k, string_size);
-        keys = generate_string_vector(n, seed + i);
+        keys = generate_string_vector(n, string_size, seed + i);
         values = generate_number_vector(n, seed + i);
 
         for (int j = 0; j < n; j++) {
@@ -72,9 +72,15 @@ double stress_test_list_entries(int it_number, int n, int m, int k,
         }
 
         Listed result = BLT.list_entries();
-        
+        if (result.keys.size() != keys.size() || 
+                result.values.size() != values.size()) {
+            successes--;
+            continue;
+        }
         for (int j = 0; j < n; j++) {
-            if (result.keys[j] != keys[j] || result.values[j] != values[j]) {
+            if (find(keys.begin(), keys.end(), result.keys[j]) == keys.end() || 
+                   find(values.begin(), values.end(), result.values[j])
+                   == values.end()) {
                 successes--;
                 break;
             }
