@@ -33,3 +33,18 @@ Percentage of successes for ratio 1.8 is 96.3
 Percentage of successes for ratio 1.9 is 97.2
 Percentage of successes for ratio 2 is 97.5
 ```
+Предварительные результаты экспериментов с разностью фильтров:
+```
+STRESS TESTING OF LIST-ENTRIES OF SET DIFFERENCE
+------------------------------------------------
+Number of TESTS:
+100
+Number of PAIRS per filter:
+1000
+Number of CELLS per filter:
+2000
+Number of INTERSECTING PAIRS for two sets:
+500
+List entries (100 tests with 1000 pairs):
+Percentege of successes is 99
+```
