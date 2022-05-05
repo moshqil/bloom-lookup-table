@@ -44,8 +44,40 @@ void test2() {
         << endl;
 }
 
+void test3() {
+    vector<int> ns = {100, 500, 1000, 10000};
+    vector<double> denoms = {1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2};
+    
+    vector<int> k_vector, n_vector, success_rate;
+    vector<double> denom_vector;
+
+    int seed = 1;
+
+    for (int k = 1; k < 5; k++) {
+        for (int n : ns) {
+            for (auto denom : denoms) {
+                int num_tests = 100;
+                if (n > 1000) {
+                    num_tests = 10;
+                }
+                success_rate.push_back(stress_test_list_entries(num_tests, n, 
+                            denom * n, k, 5, seed++));
+                cout << "ok " << k << ' ' << n << ' ' << denom << endl;
+                k_vector.push_back(k);
+                n_vector.push_back(n);
+                denom_vector.push_back(denom);
+            }
+        }
+    }
+
+    for (int i = 0; i < k_vector.size(); i++) {
+        cout << k_vector[i] << ' ' << n_vector[i] << ' ' << denom_vector[i] << ' ' << success_rate[i] << endl;
+    }
+
+}
 
 int main() {
-    test1();
-    test2();
+    // test1();
+    // test2();
+    test3();
 }

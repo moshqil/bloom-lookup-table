@@ -185,5 +185,3 @@ BloomLookupTableSubstracted subtraction(const BloomLookupTable& first,
     return new_blt;
 }
 
-
-
