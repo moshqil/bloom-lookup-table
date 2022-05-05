@@ -71,7 +71,7 @@ double stress_test_list_entries(int it_number, int n, int m, int k,
             BLT.insert(keys[j], values[j]);
         }
 
-        Listed result = BLT.list_entries();
+        Listed result = BLT.fast_list_entries();
         if (result.keys.size() != keys.size() || 
                 result.values.size() != values.size()) {
             successes--;

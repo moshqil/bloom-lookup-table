@@ -5,6 +5,7 @@
 #include <random>
 #include <cassert>
 #include <cstring>
+#include <set>
 #include "./smhasher/src/MurmurHash3.h"
 #include "./smhasher/src/MurmurHash3.cpp"
 
@@ -106,6 +107,43 @@ vector<int64_t> valuesum;
             result.values.push_back(valuexor[index]);
             remove(keyxor[index], valuexor[index]);
             it = find(count.begin(), count.end(), 1);
+        }
+        return result;
+    }
+
+    Listed fast_list_entries() {
+        Listed result;
+        set<int64_t> ones;
+
+        for (int64_t i = 0; i < count.size(); i++) {
+            if (count[i] == 1) {
+                ones.insert(i);
+            }
+        }
+
+        while (!ones.empty()) {
+            int64_t ind = *ones.begin();
+
+            result.keys.push_back(keyxor[ind]);
+            result.values.push_back(valuexor[ind]);
+
+            string x_str = keyxor[ind];
+            int64_t y = valuexor[ind];
+            for (uint64_t seed = 0; seed < k; seed++) {
+                uint64_t k_hash = take_murmurhash(x_str, seed);
+
+                count[k_hash] -= 1;
+                keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
+                valuexor[k_hash] ^= y;
+                valuesum[k_hash] -= y;
+
+                if (count[k_hash] == 1) {
+                    ones.insert(k_hash);
+                }
+                if (count[k_hash] == 0) {
+                    ones.erase(ones.find(k_hash));
+                }
+            }
         }
         return result;
     }
