@@ -121,9 +121,10 @@ double stress_test_list_entries_subtracted(int it_number, int n, int m, int k,
             BLT2.insert(keys_intersection[j], values_intersection[j]);
         }
 
-        auto sub_BLT = subtraction(BLT2, BLT1);
+        auto sub_BLT = subtraction(BLT1, BLT2);
 
         Entries result = sub_BLT.list_entries();
+
         if (result.Alice.keys.size() != keys1.size() || 
                 result.Alice.values.size() != values1.size()) {
             successes--;
