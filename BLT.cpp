@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstring>
 #include <set>
+#include <stack>
 #include "./smhasher/src/MurmurHash3.h"
 #include "./smhasher/src/MurmurHash3.cpp"
 
@@ -113,16 +114,21 @@ vector<int64_t> valuesum;
 
     Listed fast_list_entries() {
         Listed result;
-        set<int64_t> ones;
+        stack<int64_t> ones;
 
         for (int64_t i = 0; i < count.size(); i++) {
             if (count[i] == 1) {
-                ones.insert(i);
+                ones.push(i);
             }
         }
 
         while (!ones.empty()) {
-            int64_t ind = *ones.begin();
+            int64_t ind = ones.top();
+            ones.pop();
+
+            if (count[ind] != 1) {
+                continue;
+            }
 
             result.keys.push_back(keyxor[ind]);
             result.values.push_back(valuexor[ind]);
@@ -138,10 +144,7 @@ vector<int64_t> valuesum;
                 valuesum[k_hash] -= y;
 
                 if (count[k_hash] == 1) {
-                    ones.insert(k_hash);
-                }
-                if (count[k_hash] == 0) {
-                    ones.erase(ones.find(k_hash));
+                    ones.push(k_hash);
                 }
             }
         }
@@ -206,6 +209,90 @@ public:
             it_alice = find_alice();
             it_bob = find_bob();
         }
+        return result;
+    }
+ 
+    Entries fast_list_entries() {
+        Entries result;
+        stack<int64_t> ones_alice, ones_bob;
+
+        for (int64_t i = 0; i < count.size(); i++) {
+            if (count[i] == 1 && (valuesum[i] == valuexor[i])) {
+                ones_alice.push(i);
+            }
+            if (count[i] == -1 && (-valuesum[i] == valuexor[i])) {
+                ones_bob.push(i);
+            }
+        }
+
+        while (!(ones_alice.empty() && ones_bob.emty())) {
+            if (!ones_alice.empty()) {
+                auto ind_alice = ones_alice.top();
+                ones_alice.pop();
+                
+                if (!(count[ind_alice] == 1 && 
+                            (valuesum[ind_alice] == valuexor[ind_alice]))) {
+                    continue;
+                }
+
+                result.Alice.keys.push_back(keyxor[ind_alice]);
+                result.Alice.values.push_back(valuexor[ind_alice]);
+                
+                string x_str = keyxor[ind_alice];
+                int64_t y = valuexor[ind_alice];
+                for (uint64_t seed = 0; seed < k; seed++) {
+                    uint64_t k_hash = take_murmurhash(x_str, seed);
+
+                    count[k_hash] -= 1;
+                    keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
+                    valuexor[k_hash] ^= y;
+                    valuesum[k_hash] -= y;
+
+                    if (count[k_hash] == 1 && 
+                            (valuesum[k_hash] == valuexor[k_hash])) {
+                        ones_alice.push(k_hash);
+                    }
+
+                    if (count[k_hash] == -1 && 
+                            (-valuesum[k_hash] == valuexor[k_hash])) {
+                        ones_bob.push(k_hash);
+                    }
+
+                }
+            }
+            if (!ones_bob.empty()) {
+                auto ind_bob = ones_bob.top();
+                ones_bob.pop();
+                
+                if (!(count[ind_bob] == -1 && 
+                            (-valuesum[ind_bob] == valuexor[ind_bob]))) {
+                    continue;
+                }
+
+                result.Bob.keys.push_back(keyxor[ind_bob]);
+                result.Bob.values.push_back(valuexor[ind_bob]);
+                
+                string x_str = keyxor[ind_bob];
+                int64_t y = valuexor[ind_bob];
+                for (uint64_t seed = 0; seed < k; seed++) {
+                    uint64_t k_hash = take_murmurhash(x_str, seed);
+
+                    count[k_hash] += 1;
+                    keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
+                    valuexor[k_hash] ^= y;
+                    valuesum[k_hash] += y;
+
+                    if (count[k_hash] == -1 && 
+                            (-valuesum[k_hash] == valuexor[k_hash])) {
+                        ones_bob.push(k_hash);
+                    }
+
+                    if (count[k_hash] == 1 && 
+                            (valuesum[k_hash] == valuexor[k_hash])) {
+                        ones_alice.push(k_hash);
+                    }
+                }
+            }
         return result;
     }
 };
