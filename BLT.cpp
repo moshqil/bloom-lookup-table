@@ -3,9 +3,6 @@
 #include <vector>
 #include <ctime>
 #include <random>
-#include <cassert>
-#include <cstring>
-#include <set>
 #include <stack>
 #include "./smhasher/src/MurmurHash3.h"
 #include "./smhasher/src/MurmurHash3.cpp"
@@ -20,6 +17,12 @@ struct Listed {
 struct Entries {
     Listed Alice;
     Listed Bob;
+};
+
+struct KeyValuePair {
+    string key;
+    int64_t value;
+    bool empty = false;
 };
 
 class BloomLookupTable {
@@ -215,17 +218,18 @@ public:
     Entries fast_list_entries() {
         Entries result;
         stack<int64_t> ones_alice, ones_bob;
+        int stack_size = 0;
 
         for (int64_t i = 0; i < count.size(); i++) {
             if (count[i] == 1 && (valuesum[i] == valuexor[i])) {
-                ones_alice.push(i);
+                ones_alice.push(i); stack_size++;
             }
             if (count[i] == -1 && (-valuesum[i] == valuexor[i])) {
-                ones_bob.push(i);
+                ones_bob.push(i); stack_size++;
             }
         }
 
-        while (!(ones_alice.empty() && ones_bob.emty())) {
+        while (!(ones_alice.empty() && ones_bob.empty())) {
             if (!ones_alice.empty()) {
                 auto ind_alice = ones_alice.top();
                 ones_alice.pop();
@@ -250,12 +254,12 @@ public:
 
                     if (count[k_hash] == 1 && 
                             (valuesum[k_hash] == valuexor[k_hash])) {
-                        ones_alice.push(k_hash);
+                        ones_alice.push(k_hash); stack_size++;
                     }
 
                     if (count[k_hash] == -1 && 
                             (-valuesum[k_hash] == valuexor[k_hash])) {
-                        ones_bob.push(k_hash);
+                        ones_bob.push(k_hash); stack_size++;
                     }
 
                 }
@@ -284,15 +288,54 @@ public:
 
                     if (count[k_hash] == -1 && 
                             (-valuesum[k_hash] == valuexor[k_hash])) {
-                        ones_bob.push(k_hash);
+                        ones_bob.push(k_hash); stack_size++;
                     }
 
                     if (count[k_hash] == 1 && 
                             (valuesum[k_hash] == valuexor[k_hash])) {
-                        ones_alice.push(k_hash);
+                        ones_alice.push(k_hash); stack_size++;
                     }
                 }
             }
+            if (stack_size > 4 * m) {
+                break;
+            }
+        }
+        return result;
+    }
+
+    KeyValuePair unpoison(KeyValuePair& a) {
+        KeyValuePair result;
+        result.key = a.key;
+        result.empty = true;
+
+        for (uint64_t seed = 0; seed < k; seed++) {
+            uint64_t k_hash = take_murmurhash(a.key, seed);
+
+            if ((count[k_hash] + 1 == 1) && ((valuexor[k_hash] ^ a.value) == (valuesum[k_hash] + a.value))) {
+                result.value = valuesum[k_hash] + a.value;
+                result.empty = false;
+                insert(a.key, a.value);
+                remove(result.key, result.value);
+                break;
+            }
+        }
+        return result;
+    }
+
+    Entries poisoned_list_entries(vector<KeyValuePair>& bob_pairs) {
+        Entries result = fast_list_entries();
+
+        for (auto bob_pair : bob_pairs) {
+            auto alice_pair = unpoison(bob_pair);
+            if (!alice_pair.empty) {
+                result.Alice.keys.push_back(alice_pair.key);
+                result.Alice.values.push_back(alice_pair.value);
+
+                result.Bob.keys.push_back(bob_pair.key);
+                result.Bob.values.push_back(bob_pair.value);
+            }
+        }
         return result;
     }
 };

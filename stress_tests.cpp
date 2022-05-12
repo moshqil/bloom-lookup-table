@@ -88,71 +88,39 @@ double stress_test_list_entries(int it_number, int n, int m, int k,
     return 100.0 * (successes / (double)it_number);
 }
 
-double stress_test_list_entries_subtracted(int it_number, int n, int m, int k, 
-        int string_size, int intersection_len, int seed) {
+double stress_test_list_entries_subtracted_empty_intersection(int it_number, int n_alice, int n_bob, int m, int k,
+        int string_size, int seed) {
 
-    vector<string> keys1, keys2, keys_intersection;
-    vector<int64_t> values1, values2, values_intersection;
+    vector<string> keys1, keys2;
+    vector<int64_t> values1, values2;
 
     double successes = (double)it_number;
 
     for (int i = 0; i < it_number; i++) {
-        auto BLT1 = BloomLookupTable(n, m, k, string_size);
-        auto BLT2 = BloomLookupTable(n, m, k, string_size);
+        auto BLT1 = BloomLookupTable(n_alice, m, k, string_size);
+        auto BLT2 = BloomLookupTable(n_bob, m, k, string_size);
 
-        keys1 = generate_string_vector(n - intersection_len, string_size, 3 * (seed + i));
-        keys2 = generate_string_vector(n - intersection_len, string_size, 3 * (seed + i) + 1);
-        keys_intersection = generate_string_vector(intersection_len, 
-                string_size, 3 * (seed + i) + 2);
+        keys1 = generate_string_vector(n_alice, string_size, 2 * (seed + i));
+        keys2 = generate_string_vector(n_bob, string_size, 2 * (seed + i) + 1);
 
-        values1 = generate_number_vector(n - intersection_len, 3 * (seed + i));
-        values2 = generate_number_vector(n - intersection_len, 3 * (seed + i) + 1);
-        values_intersection = generate_number_vector(intersection_len,
-                3 * (seed + i) + 2);
+        values1 = generate_number_vector(n_alice, 2 * (seed + i));
+        values2 = generate_number_vector(n_bob, 2 * (seed + i) + 1);
 
-        for (int j = 0; j < n - intersection_len; j++) {
+        for (int j = 0; j < n_alice; j++) {
             BLT1.insert(keys1[j], values1[j]);
-            BLT2.insert(keys2[j], values2[j]);
         }
-
-        for (int j = 0; j < intersection_len; j++) {
-            BLT1.insert(keys_intersection[j], values_intersection[j]);
-            BLT2.insert(keys_intersection[j], values_intersection[j]);
+        for (int j = 0; j < n_bob; j++) {
+            BLT2.insert(keys2[j], values2[j]);
         }
 
         auto sub_BLT = subtraction(BLT1, BLT2);
 
-        Entries result = sub_BLT.list_entries();
+        Entries result = sub_BLT.fast_list_entries();
 
         if (result.Alice.keys.size() != keys1.size() || 
-                result.Alice.values.size() != values1.size()) {
+                result.Bob.keys.size() != keys2.size()) {
             successes--;
-            continue;
         }
-        if (result.Bob.keys.size() != keys2.size() || 
-                result.Bob.values.size() != values2.size()) {
-            successes--;
-            continue;
-        }
-
-        for (int j = 0; j < result.Alice.keys.size(); j++) {
-            if (find(keys1.begin(), keys1.end(), result.Alice.keys[j]) == keys1.end() || 
-                   find(values1.begin(), values1.end(), result.Alice.values[j])
-                   == values1.end()) {
-                successes--;
-                break;
-            }
-        }
-
-        for (int j = 0; j < result.Bob.keys.size(); j++) {
-            if (find(keys2.begin(), keys2.end(), result.Bob.keys[j]) == keys2.end() || 
-                   find(values2.begin(), values2.end(), result.Bob.values[j])
-                   == values2.end()) {
-                successes--;
-                break;
-            }
-        }
-
     }
     return 100.0 * (successes / (double)it_number);
 }

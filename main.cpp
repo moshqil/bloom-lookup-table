@@ -39,7 +39,7 @@ void test2() {
     vector<double> denoms = {1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0};
 
     cout << "Percentege of successes is " 
-        << stress_test_list_entries_subtracted(tests, pairs, cells, 3, 5,
+        << stress_test_list_entries_subtracted_empty_intersection(tests, pairs, cells, 3, 5,
                 intersection_pairs, 1)
         << endl;
 }
@@ -47,9 +47,6 @@ void test2() {
 void test3() {
     vector<int> ns = {100000};
     vector<double> denoms = {1.3, 1.33, 1.36, 1.4, 1.5};
-    
-    vector<int> k_vector, n_vector; 
-    vector<double> denom_vector, success_rate;
 
     int seed = 1;
 
@@ -57,24 +54,43 @@ void test3() {
         for (int n : ns) {
             for (auto denom : denoms) {
                 int num_tests = 100;
-                success_rate.push_back(stress_test_list_entries(num_tests, n, 
-                            denom * n, k, 10, seed++));
-                cout << "ok " << k << ' ' << n << ' ' << denom << endl;
-                k_vector.push_back(k);
-                n_vector.push_back(n);
-                denom_vector.push_back(denom);
+                cout << k << " " << n << " " << denom << stress_test_list_entries(num_tests, n,
+                            denom * n, k, 10, seed++) << endl;
+                // кол-во хеш функций - пар - отношение размера блум фильтра к парам - процент успехов
             }
         }
     }
+}
 
-    for (int i = 0; i < k_vector.size(); i++) {
-        cout << k_vector[i] << ' ' << n_vector[i] << ' ' << denom_vector[i] << ' ' << success_rate[i] << endl;
+void test4() {
+    vector<int> ns_alice = {500, 1000, 2000, 5000, 10000};
+    vector<double> denoms_alice = {1.3, 1.4, 1.5, 2};
+
+    vector<int> ns_bob = {500, 1000};
+    vector<double> denoms_bob = {0, 1, 1.3, 2};
+
+    int num_tests = 100; int i = 0;
+    cout << "Hash f - Alice pairs - Bob pairs - Alice denom - Bob denom - SUCCESS PERCENTAGE" << endl;
+    for (int k = 3; k <= 5; k++) {
+        for (auto n_alice : ns_alice) {
+            for (auto n_bob : ns_bob) {
+                for (auto denom_alice : denoms_alice) {
+                    for (auto denom_bob : denoms_bob) {
+                        cout << k << " " << n_alice << " " << n_bob << " " << denom_alice << " " << denom_bob << " " <<
+                        stress_test_list_entries_subtracted_empty_intersection(num_tests, n_alice, n_bob,
+                                                                               (double)n_alice * denom_alice +
+                                                                               (double)n_bob * denom_bob,
+                                                                               k, 10, i++) << endl;
+                    }
+                }
+            }
+        }
     }
-
 }
 
 int main() {
     // test1();
     // test2();
-    test3();
+    // test3();
+    test4();
 }
