@@ -124,3 +124,58 @@ double stress_test_list_entries_subtracted_empty_intersection(int it_number, int
     }
     return 100.0 * (successes / (double)it_number);
 }
+
+double stress_test_poisoned(int it_number, int n_alice, int n_bob, int poisoned_keys, int m, int k,
+                                                              int string_size, int seed) {
+
+    vector<string> keys1, keys2, keys_p;
+    vector<int64_t> values1, values2, values_p_alice, values_p_bob;
+
+    n_alice -= poisoned_keys;
+    n_bob -= poisoned_keys;
+
+    double successes = (double)it_number;
+
+    for (int i = 0; i < it_number; i++) {
+        auto BLT1 = BloomLookupTable(n_alice, m, k, string_size);
+        auto BLT2 = BloomLookupTable(n_bob, m, k, string_size);
+
+        keys1 = generate_string_vector(n_alice, string_size, 3 * (seed + i));
+        keys2 = generate_string_vector(n_bob, string_size, 3 * (seed + i) + 1);
+        keys_p = generate_string_vector(poisoned_keys, string_size, 3 * (seed + i) + 2);
+
+        values1 = generate_number_vector(n_alice, 4 * (seed + i));
+        values2 = generate_number_vector(n_bob, 4 * (seed + i) + 1);
+        values_p_alice = generate_number_vector(poisoned_keys, 4 * (seed + i) + 2);
+        values_p_bob = generate_number_vector(poisoned_keys, 4 * (seed + i) + 3);
+
+        vector<KeyValuePair> bob_pairs;
+
+        for (int j = 0; j < n_alice; j++) {
+            BLT1.insert(keys1[j], values1[j]);
+        }
+        for (int j = 0; j < n_bob; j++) {
+            BLT2.insert(keys2[j], values2[j]);
+            bob_pairs.push_back({keys2[j], values2[j]});
+        }
+        for (int j = 0; j < poisoned_keys; j++) {
+            BLT1.insert(keys_p[j], values_p_alice[j]);
+            BLT2.insert(keys_p[j], values_p_bob[j]);
+            bob_pairs.push_back({keys_p[j], values_p_bob[j]});
+        }
+
+        auto sub_BLT = subtraction(BLT1, BLT2);
+
+        Entries result = sub_BLT.poisoned_list_entries(bob_pairs);
+
+        int a = result.Alice.keys.size();
+        int b = result.Bob.keys.size();
+        int c = keys_p.size();
+        if (result.Alice.keys.size() != (keys1.size() + keys_p.size()) ||
+            result.Bob.keys.size() != (keys2.size() + keys_p.size())) {
+            successes--;
+            continue;
+        }
+    }
+    return 100.0 * (successes / (double)it_number);
+}

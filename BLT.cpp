@@ -21,7 +21,7 @@ struct Entries {
 
 struct KeyValuePair {
     string key;
-    int64_t value;
+    int64_t value = 0;
     bool empty = false;
 };
 
@@ -32,7 +32,7 @@ double denom;
 int64_t string_size;
 vector<int64_t> count;
 vector<string> keyxor;
-vector<int64_t> valuexor;
+vector<int64_t> hashvaluesum;
 vector<int64_t> valuesum;
 
     string str_xor(const string& str1, const string& str2) const {
@@ -49,12 +49,19 @@ vector<int64_t> valuesum;
         return hash_otpt[1] % m;
     }
 
+    uint64_t take_murmurhash_int64(int64_t value, int64_t seed) const {
+        uint64_t hash_otpt[2];
+        const int64_t* x = &value;
+        MurmurHash3_x64_128(x, (uint64_t)sizeof(value), seed, hash_otpt);
+        return hash_otpt[1] % m;
+    }
+
     BloomLookupTable(int64_t n, int m, int k, int string_size) : n(n), m(m), k(k), string_size(string_size) {
         count.resize(m, 0);
         denom = (double)m / (double)n;
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
-        valuexor.resize(m, 0);
+        hashvaluesum.resize(m, 0);
         valuesum.resize(m, 0);
     }
 
@@ -62,7 +69,7 @@ vector<int64_t> valuesum;
         count.resize(m, 0);
         string empty_string(string_size, 0);
         keyxor.resize(m, empty_string);
-        valuexor.resize(m, 0);
+        hashvaluesum.resize(m, 0);
         valuesum.resize(m, 0);
     }
 
@@ -72,7 +79,7 @@ vector<int64_t> valuesum;
 
             count[k_hash] += 1;
             keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
-            valuexor[k_hash] ^= y;
+            hashvaluesum[k_hash] += take_murmurhash_int64(y, 1);
             valuesum[k_hash] += y;
         }
     }
@@ -83,7 +90,7 @@ vector<int64_t> valuesum;
 
             count[k_hash] -= 1;
             keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
-            valuexor[k_hash] ^= y;
+            hashvaluesum[k_hash] -= take_murmurhash_int64(y, 1);
             valuesum[k_hash] -= y;
         }
     }
@@ -96,7 +103,7 @@ vector<int64_t> valuesum;
                 return -2;
             }
             if (count[k_hash] == 1 && keyxor[k_hash] == x_str) {
-                return valuexor[k_hash];
+                return valuesum[k_hash];
             }
         }
         return -1;
@@ -108,8 +115,8 @@ vector<int64_t> valuesum;
         while (it != count.end()) {
             int64_t index = it - count.begin();
             result.keys.push_back(keyxor[index]);
-            result.values.push_back(valuexor[index]);
-            remove(keyxor[index], valuexor[index]);
+            result.values.push_back(valuesum[index]);
+            remove(keyxor[index], hashvaluesum[index]);
             it = find(count.begin(), count.end(), 1);
         }
         return result;
@@ -134,16 +141,16 @@ vector<int64_t> valuesum;
             }
 
             result.keys.push_back(keyxor[ind]);
-            result.values.push_back(valuexor[ind]);
+            result.values.push_back(valuesum[ind]);
 
             string x_str = keyxor[ind];
-            int64_t y = valuexor[ind];
+            int64_t y = valuesum[ind];
             for (uint64_t seed = 0; seed < k; seed++) {
                 uint64_t k_hash = take_murmurhash(x_str, seed);
 
                 count[k_hash] -= 1;
                 keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
-                valuexor[k_hash] ^= y;
+                hashvaluesum[k_hash] -= take_murmurhash_int64(y, 1);
                 valuesum[k_hash] -= y;
 
                 if (count[k_hash] == 1) {
@@ -168,7 +175,8 @@ public:
 
         while (it != count.end()) {
             index = it - count.begin();
-            if ((count[index] == 1) && (valuesum[index] == valuexor[index])) {
+            if ((count[index] == 1) &&
+            (take_murmurhash_int64(valuesum[index], 1) == hashvaluesum[index])) {
                 return it;
             }
             it++;
@@ -182,7 +190,8 @@ public:
 
         while (it != count.end()) {
             index = it - count.begin();
-            if ((count[index] == -1) && (-valuesum[index] == valuexor[index])) {
+            if ((count[index] == -1) &&
+            (take_murmurhash_int64(-valuesum[index], 1) == -hashvaluesum[index])) {
                 return it;
             }
             it++;
@@ -201,13 +210,13 @@ public:
 
             if (it_alice != count.end()) {
                 result.Alice.keys.push_back(keyxor[index_alice]);
-                result.Alice.values.push_back(valuexor[index_alice]);
-                remove(keyxor[index_alice], valuexor[index_alice]);
+                result.Alice.values.push_back(valuesum[index_alice]);
+                remove(keyxor[index_alice], valuesum[index_alice]);
             }
             if (it_bob != count.end()) {
                 result.Bob.keys.push_back(keyxor[index_bob]);
-                result.Bob.values.push_back(valuexor[index_bob]);
-                insert(keyxor[index_bob], valuexor[index_bob]);
+                result.Bob.values.push_back(-valuesum[index_bob]);
+                insert(keyxor[index_bob], -valuesum[index_bob]);
             }
             it_alice = find_alice();
             it_bob = find_bob();
@@ -221,10 +230,12 @@ public:
         int stack_size = 0;
 
         for (int64_t i = 0; i < count.size(); i++) {
-            if (count[i] == 1 && (valuesum[i] == valuexor[i])) {
+            if (count[i] == 1 &&
+            (take_murmurhash_int64(valuesum[i], 1) == hashvaluesum[i])) {
                 ones_alice.push(i); stack_size++;
             }
-            if (count[i] == -1 && (-valuesum[i] == valuexor[i])) {
+            if (count[i] == -1 &&
+            (take_murmurhash_int64(-valuesum[i], 1) == -hashvaluesum[i])) {
                 ones_bob.push(i); stack_size++;
             }
         }
@@ -234,31 +245,31 @@ public:
                 auto ind_alice = ones_alice.top();
                 ones_alice.pop();
                 
-                if (!(count[ind_alice] == 1 && 
-                            (valuesum[ind_alice] == valuexor[ind_alice]))) {
+                if (!(count[ind_alice] == 1 &&
+                        (take_murmurhash_int64(valuesum[ind_alice], 1) == hashvaluesum[ind_alice]))) {
                     continue;
                 }
 
                 result.Alice.keys.push_back(keyxor[ind_alice]);
-                result.Alice.values.push_back(valuexor[ind_alice]);
+                result.Alice.values.push_back(valuesum[ind_alice]);
                 
                 string x_str = keyxor[ind_alice];
-                int64_t y = valuexor[ind_alice];
+                int64_t y = valuesum[ind_alice];
                 for (uint64_t seed = 0; seed < k; seed++) {
                     uint64_t k_hash = take_murmurhash(x_str, seed);
 
                     count[k_hash] -= 1;
                     keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
-                    valuexor[k_hash] ^= y;
+                    hashvaluesum[k_hash] -= take_murmurhash_int64(y, 1);
                     valuesum[k_hash] -= y;
 
-                    if (count[k_hash] == 1 && 
-                            (valuesum[k_hash] == valuexor[k_hash])) {
+                    if (count[k_hash] == 1 &&
+                            (take_murmurhash_int64(valuesum[k_hash], 1) == hashvaluesum[k_hash])) {
                         ones_alice.push(k_hash); stack_size++;
                     }
 
-                    if (count[k_hash] == -1 && 
-                            (-valuesum[k_hash] == valuexor[k_hash])) {
+                    if (count[k_hash] == -1 &&
+                            (take_murmurhash_int64(-valuesum[k_hash], 1) == -hashvaluesum[k_hash])) {
                         ones_bob.push(k_hash); stack_size++;
                     }
 
@@ -268,31 +279,31 @@ public:
                 auto ind_bob = ones_bob.top();
                 ones_bob.pop();
                 
-                if (!(count[ind_bob] == -1 && 
-                            (-valuesum[ind_bob] == valuexor[ind_bob]))) {
+                if (!(count[ind_bob] == -1 &&
+                        (take_murmurhash_int64(-valuesum[ind_bob], 1) == -hashvaluesum[ind_bob]))) {
                     continue;
                 }
 
                 result.Bob.keys.push_back(keyxor[ind_bob]);
-                result.Bob.values.push_back(valuexor[ind_bob]);
+                result.Bob.values.push_back(-valuesum[ind_bob]);
                 
                 string x_str = keyxor[ind_bob];
-                int64_t y = valuexor[ind_bob];
+                int64_t y = -valuesum[ind_bob];
                 for (uint64_t seed = 0; seed < k; seed++) {
                     uint64_t k_hash = take_murmurhash(x_str, seed);
 
                     count[k_hash] += 1;
                     keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
-                    valuexor[k_hash] ^= y;
+                    hashvaluesum[k_hash] += take_murmurhash_int64(y, 1);
                     valuesum[k_hash] += y;
 
-                    if (count[k_hash] == -1 && 
-                            (-valuesum[k_hash] == valuexor[k_hash])) {
+                    if (count[k_hash] == -1 &&
+                            (take_murmurhash_int64(-valuesum[k_hash], 1) == -hashvaluesum[k_hash])) {
                         ones_bob.push(k_hash); stack_size++;
                     }
 
-                    if (count[k_hash] == 1 && 
-                            (valuesum[k_hash] == valuexor[k_hash])) {
+                    if (count[k_hash] == 1 &&
+                            (take_murmurhash_int64(valuesum[k_hash], 1) == hashvaluesum[k_hash])) {
                         ones_alice.push(k_hash); stack_size++;
                     }
                 }
@@ -311,8 +322,14 @@ public:
 
         for (uint64_t seed = 0; seed < k; seed++) {
             uint64_t k_hash = take_murmurhash(a.key, seed);
+            int64_t vsum = valuesum[k_hash] + a.value;
+            int64_t hofvsum = take_murmurhash_int64(valuesum[k_hash] + a.value, 1);
+            int64_t sumhash = (hashvaluesum[k_hash] + take_murmurhash_int64(a.value, 1));
 
-            if ((count[k_hash] + 1 == 1) && ((valuexor[k_hash] ^ a.value) == (valuesum[k_hash] + a.value))) {
+            if ((count[k_hash] + 1 == 1) &&
+            ((hashvaluesum[k_hash] + take_murmurhash_int64(a.value, 1)) ==
+            take_murmurhash_int64(valuesum[k_hash] + a.value, 1))) {
+                // cout << "unpoison" << endl;
                 result.value = valuesum[k_hash] + a.value;
                 result.empty = false;
                 insert(a.key, a.value);
@@ -326,16 +343,67 @@ public:
     Entries poisoned_list_entries(vector<KeyValuePair>& bob_pairs) {
         Entries result = fast_list_entries();
 
-        for (auto bob_pair : bob_pairs) {
-            auto alice_pair = unpoison(bob_pair);
-            if (!alice_pair.empty) {
-                result.Alice.keys.push_back(alice_pair.key);
-                result.Alice.values.push_back(alice_pair.value);
+        vector<bool> bob_left(bob_pairs.size(), true);
+        int left = bob_left.size();
 
-                result.Bob.keys.push_back(bob_pair.key);
-                result.Bob.values.push_back(bob_pair.value);
+        for (int i = 0; i < bob_pairs.size(); i++) {
+            if (find(result.Bob.keys.begin(), result.Bob.keys.end(), bob_pairs[i].key) != result.Bob.keys.end()) {
+                bob_left[i] = false;
+                left--;
             }
         }
+
+        // cout << "left " << left << endl;
+        int u = 0;
+        int j = 0;
+        while (left > 0) {
+            j++;
+            bool any_unpoisoned = false;
+            for (int i = 0; i < bob_pairs.size(); i++) {
+                auto bob_pair = bob_pairs[i];
+                if (!bob_left[i]) {
+                    continue;
+                }
+                // cout << bob_pair.key << " " << bob_pair.value << endl;
+                auto alice_pair = unpoison(bob_pair);
+                if (!alice_pair.empty) {
+                    u++;
+                    any_unpoisoned = true;
+                    left--;
+                    bob_left[i] = false;
+                    result.Alice.keys.push_back(alice_pair.key);
+                    result.Alice.values.push_back(alice_pair.value);
+
+                    result.Bob.keys.push_back(bob_pair.key);
+                    result.Bob.values.push_back(bob_pair.value);
+                }
+            }
+            if (!any_unpoisoned) {
+                break;
+            } else {
+                Entries result_update = fast_list_entries();
+
+                for (int i = 0; i < bob_pairs.size(); i++) {
+                    if (find(result_update.Bob.keys.begin(), result_update.Bob.keys.end(),
+                             bob_pairs[i].key) != result_update.Bob.keys.end()) {
+                        bob_left[i] = false;
+                        left--;
+                    }
+                }
+
+                for (int i = 0; i < result_update.Alice.keys.size(); i++) {
+                    result.Alice.keys.push_back(result_update.Alice.keys[i]);
+                    result.Alice.values.push_back(result_update.Alice.values[i]);
+                }
+
+                for (int i = 0; i < result_update.Bob.keys.size(); i++) {
+                    result.Bob.keys.push_back(result_update.Bob.keys[i]);
+                    result.Bob.values.push_back(result_update.Bob.values[i]);
+                }
+            }
+        }
+
+        // cout << "unpoisoned " << u << endl;
         return result;
     }
 };
@@ -347,9 +415,8 @@ BloomLookupTableSubstracted subtraction(const BloomLookupTable& first,
     for (uint64_t i = 0; i < first.m; i++) {
         new_blt.count[i] = first.count[i] - second.count[i];
         new_blt.keyxor[i] = first.str_xor(first.keyxor[i], second.keyxor[i]);
-        new_blt.valuexor[i] = first.valuexor[i] ^ second.valuexor[i];
+        new_blt.hashvaluesum[i] = first.hashvaluesum[i] - second.hashvaluesum[i];
         new_blt.valuesum[i] = first.valuesum[i] - second.valuesum[i];
     }
     return new_blt;
 }
-
