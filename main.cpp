@@ -1,4 +1,6 @@
 #include "stress_tests.cpp"
+#include <fstream>
+#include <string>
 
 
 void test1() {
@@ -145,6 +147,61 @@ void test6() {
     }
 }
 
+void test7() {
+    ifstream alice_genome("14chr_f.txt");
+    ifstream bob_genome("14chr_s.txt");
+
+    vector<string> alice_keys, bob_keys;
+    vector<int64_t> alice_values, bob_values;
+
+    string s1, s2; int n;
+
+    while (getline (alice_genome, s1)) {
+        alice_keys.push_back(s1);
+        getline(alice_genome, s2);
+        n = stoi(s2);
+        alice_values.push_back(n);
+    }
+
+    vector<KeyValuePair> bob_pairs;
+
+    while (getline (bob_genome, s1)) {
+        bob_keys.push_back(s1);
+        getline(bob_genome, s2);
+        n = stoi(s2);
+        bob_values.push_back(n);
+        bob_pairs.push_back({s1, n});
+    }
+
+    vector<double> denoms = {10};
+
+    for (auto denom : denoms) {
+        cout << denom << endl;
+        int m = denom * (alice_keys.size() + bob_keys.size());
+        int k = 3;
+        int string_size = 5;
+        auto BLT_a = BloomLookupTable(alice_keys.size(), m, k, 5);
+        auto BLT_b = BloomLookupTable(bob_keys.size(), m, k, 5);
+
+        for (int i = 0; i < alice_keys.size(); i++) {
+            BLT_a.insert(alice_keys[i], alice_values[i]);
+        }
+        for (int i = 0; i < bob_keys.size(); i++) {
+            BLT_b.insert(bob_keys[i], bob_values[i]);
+        }
+
+        auto BLT_sub = subtraction(BLT_a, BLT_b);
+
+        Entries difference = BLT_sub.poisoned_list_entries(bob_pairs);
+
+    }
+    cout << alice_keys.size() << endl;
+    cout << bob_keys.size() << endl;
+    //auto BLT_a = BloomLookupTable()
+
+    alice_genome.close();
+    bob_genome.close();
+}
 
 int main() {
     // test1();
@@ -152,5 +209,6 @@ int main() {
     // test3();
     // test4();
     // test5();
-    test6();
+    // test6();
+    test5();
 }

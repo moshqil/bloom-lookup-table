@@ -22,13 +22,28 @@ def read_gatk_vcf(path):
 #    for elem in data:
 #        f.write(" ".join(map(str, elem)) + '\n')
 f1 = open("14chr_4genomes.txt", 'r') 
-f2 = open("14chr_first.txt", 'w')
-f3 = open("14chr_second.txt", 'w')
-for line in f1:
+f2 = open("14chr_first.txt", 'r')
+f3 = open("14chr_second.txt", 'r')
+f4 = open("14chr_f.txt", 'w')
+f5 = open("14chr_s.txt", 'w')
+for line in f2:
     a = line.split()
-    if a[3] != "0|0":
-        f2.write(a[0] + ' ' + a[1] + ' ' + a[2] + ' ' + a[3] + '\n')
-    if a[4] != "0|0":
-        f3.write(a[0] + ' ' + a[1] + ' ' + a[2] + ' ' + a[4] + '\n')
+    f4.write(a[0] + ' ' + a[1] + ' ' + a[2] + '\n')
+    if a[3] == "0|1":
+        f4.write('1\n')
+    if a[3] == "1|0":
+        f4.write('2\n')
+    if a[3] == "1|1":
+        f4.write('3\n')
+for line in f3:
+    a = line.split()
+    f5.write(a[0] + ' ' + a[1] + ' ' + a[2] + '\n')
+    if a[3] == "0|1":
+        f5.write('1\n')
+    if a[3] == "1|0":
+        f5.write('2\n')
+    if a[3] == "1|1":
+        f5.write('3\n')
+
 
 

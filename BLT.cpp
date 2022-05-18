@@ -35,8 +35,14 @@ vector<string> keyxor;
 vector<int64_t> hashvaluesum;
 vector<int64_t> valuesum;
 
-    string str_xor(const string& str1, const string& str2) const {
-        string x_xor(string_size, ' ');
+    string str_xor(const string& str1_c, const string& str2_c) const {
+        int new_string_size = max(str1_c.size(), str2_c.size());
+        string str1(new_string_size - str1_c.size(), ' ');
+        string str2(new_string_size - str2_c.size(), ' ');
+        str1 += str1_c;
+        str2 += str2_c;
+
+        string x_xor(new_string_size, ' ');
         transform(str1.begin(), str1.end(), str2.begin(), x_xor.begin(),
                 [](char c1, char c2){ return c1 ^ c2; });
         return x_xor;
