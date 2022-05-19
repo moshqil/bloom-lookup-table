@@ -5,7 +5,7 @@
 \usepackage[left=2cm,right=2cm, top=2cm,bottom=2cm,bindingoffset=0cm]{geometry}
 
 \usepackage{graphicx}
-% \graphicspath{.}
+\graphicspath{.}
 
 \usepackage{hyperref}  % so the reference URLs and citations are clickable
 \usepackage{csquotes}  % needed for biblatex for babel
@@ -33,7 +33,7 @@
 \setStudentSgn{\includegraphics[scale=0.10]{my-sig.jpg}}
 % \setStudentSgn{\smash{kjdfl}}
 \setStudent{М.М.Марченко}
-\setStudentDate{17.02.2022}
+\setStudentDate{19.05.2022}
 \setAdvisor{Григорий Аронович Кучеров}
 \setAdvisorTitle{Ведущий научный сотрудник} %(научно-учебная лаборатория методов анализа больших данных)}
 \setAdvisorAffiliation{CNRS, France}
@@ -48,102 +48,400 @@
 % Эта команда создает титульную страницу
 \makeTitlePage
 
+\begin{abstract}
+    Invertible Bloom Lookup Table is a probabilistic data structure which
+    allows to pack and restore two similar objects using O(difference) space. In
+    this work we check if there are any applications for IBLT in storing and 
+    comparing human genomes.
+\end{abstract}
 % Здесь будет автоматически генерироваться содержание документа
 \tableofcontents
 
 % Данное окружение оформляет аннотацию: краткое описание текста выделенным абзацем после заголовка
-%\begin{abstract}
-%    Проект в реализации теории,
-%\end{abstract}
 
 \section{Introduction}
 
 Bloom Filter is probably one of the most recognizable probabilistic data
 structures. It is included in many algorithmic courses and broadly used.
+Bloom filter is a really powerful and smart data structure to store sets 
+of hashable elements in a binary array of size O(number of elements in set).
+However its functionality is very limited --- it only supports "add" operation
+and "get" query with a possible false positive result.%, it can't list all the elements it stores.
+
+The less known version of Bloom Filter was introduced by Michael T. Goodrich 
+and Michael Mitzenmacher in 2011 and was called Invertible Bloom Lookup 
+Table (also known as Invertible Bloom Filter). Unlike usual Bloom Filter 
+Invertible Bloom Filter stores key-value pairs and supports get query by 
+key and list-entries operation. As in usual Bloom Filter all the operations 
+succseed with high probability.
 
 
-Фильтр Блума --- пожалуй, самая известная вероятностная структура данных. Фильтр Блума входит в программу 
-большинства курсов по алгоритмам и, как известно, уже много где применен. Одна из вариаций фильтра Блума -
-менее известный обратимый фильтр Блума (\textcite{GoMi2011}), занимает больше памяти, однако обладает сильно расширенной функциональностью.
-
-Одним из преимуществ обратимого фильтра Блума является при наличии двух наборов данных A и B,
-отличающихся на t, сжимать их до O(t) и восстанавливать (с помощью либо A, либо B) с низкой вероятностью ошибки.
-
-Геном человека занимает большое количество памяти, однако, как известно, может отличаться лишь в 0.1\% мест.
-Данная работа ставит целью оптимизировать использование памяти для хранения генома, а также поэксперементировать с сравнением фильтров с запакованными геномами и восстановлению разницы между ними. 
-
-\section{Цели}
-\begin{enumerate}
-    \item Реализовать обратимый фильтр Блума на C++.
-    \item Проинициализировать результат данными генома.
-    \item Оптимизировать обратимый фильтр Блума по памяти и вероятности ошибки конкретно для случая хранения генома.
-    \item В случае удовлетворительных результатов по оптимизации создать удобный интерфейс для запаковки и распаковки генома.
-    \item Поэксперементировать с несколькими фильтрами, содержащими каждый свой геном.
-    \item Попробовать восстановить разницу между двумя геномами запакованными в фильтры.
-\end{enumerate}
-\section{Фильтры Блума}
-\subsection{Фильтр Блума}
-Обычный фильтр Блума представляет собой битовый массив и набор из k хеш-функций.
-По фильтру невозможно восстановить множество, хранящееся в нем, невозможно удалить элемент.
-Поддерживает операции:
-\begin{enumerate}
-    \item insert(x) --- метод добавляет элемент x в множество, делая 1 биты соответствующие каждой из k хеш-функций от x. 
-    \item query(x) --- отвечает на запрос есть ли элемент x в множестве. Метод проверяет каждый бит фильтра соответствующий каждой хеш-функции от x.
-        Если хотя бы один из них равен 0 - элемента точно нет в множестве. Иначе дается положительный ответ (с маленькой вероятностью ложноположительный).
-\end{enumerate}
-\subsection{Обратимый фильтр Блума}
-В отличие от обычного фильтра Блума, обратимый хранит пары из ключей и значений (в этом варианте ключи разные).
-Обратимый фильтр Блума состоит из k хеш-функций и трех массивов: count (количество элементов в текущей ячейке),
-keyxor (xor (или сумму) ключей, лежащих в данной ячейке) и valuexor (xor (или сумму) значений, лежащих в данной ячейке).
-Обратимый фильтр Блума поддерживает операции:
-\begin{enumerate}
-    \item insert(key, value) --- метод вставки пары в множество. Для каждой хеш-функции от key к соответствующей ячейке count прибавляется 1, ячейка keyxor ксорится с key, ячейка valuexor c value.
-    \item remove(key, value) --- метод удаления пары из множества. Для каждой хеш-функции от key от соответствующей ячейки count отнимается 1, ячейка keyxor ксорится с key, ячейка valuexor c value (поскольку xor ассоциативен, коммутативен и (a xor a = 0))
-    \item get(key) --- метод получения значения по ключу. Если хотя бы одна из ячеек, соответствующих хеш-функциям от value, пустая (count = 0), то в множестве нет пары для key. Иначе, если есть ячейка с count = 1, то пара key содержится в соответствующей ячейке valuexor.
-    \item list entries() --- метод, очищающий фильтр и выводящий все пары, содержащиеся в нем. Метод работает следующим образом: ищет по массиву count ячейки равные 1, выводит соответствующую пару и удаляет ее из фильтра. Операция повторяется пока не в фильтре не очистится (с маленькой вероятностью в непустом фильтре может остаться ни одной единицы - тогда вывод метода будет неполным).
-\end{enumerate}
-
-\subsection{Устойчивость к некорректной вставке и удалению}
-
-Для случая, когда при использовании фильтра удаляют или вставляют несколько пар с одинаковым ключом и разными значениями в статье (\textcite{GoMi2011}) предлогается хранить дополнительный массив hashvaluesum, содержащий сумму хешей от значений, хранящихся в текущей ячейке.
-
-\section{Сжатие генома в фильтр Блума}
-
-Геномы хранятся как пары: название локуса (строка) и значение нуклеотида в локусе (число).
-Геном состоит из 600 млн нуклеотидов, при этом геномы двух людей различаются в лишь около 3 млн мест.
-Места различий могут быть разными для разных пар геномов, поэтому задача нахождения различий и задача сжатия генома не тривиальны.
-
-\subsection{Сжатие и восстановление геномов}
-Рассмотрим следующую задачу из статьи (\textcite{GoMi2011}):
-
-Алиса (А) хочет отправить Бобу (Б) базу данных закодированную в виде набора из пар ключей и значений (при этом все ключи разные).
-При этом у Б имеется старая версия данных и версии А и Б могут отличаться лишь на t (t значительно меньше размера всех данных).
-А создает фильтр Блума размера порядка O(t), вставляет (метод insert) туда все пары из данных А и отправляет получившийся фильтр Б.
-Б удаляет (метод remove) из полученного фильтра все пары из данных Б.
-Теперь в фильтре находятся только пары отличающиеся у А и Б. У пар А значение в массиве count равно 1, у пар Б значение в массиве count равно -1.
-Теперь Боб выводит (метод list entries) все оставшиеся пары.
-
-Проблема со сжатием генома таким образом заключается в том, что ключи --- названия локусов в нашем случае, совпадают у А и у Б.
-Поэтому при сжатии генома будет использована версия фильтра Блума устойчивая к нескольким парам с одинаковым ключом (то есть версия с дополнительным массивом G).
+In a paper (\textcite{GoMi2011}) which introduced IBLT one of the use cases suggested by authors 
+describes two databases each owned by Alice and Bob with difference of size 
+t, where t is insignificant compared to the size of the databases. In the 
+example Alice and Bob want to compare the databases, so Bob packs his 
+database in an Invertible Bloom Lookup Table of size O(t) and sends it to 
+Alice. Alice in turn using functionality of IBLT lists all of the Bob's 
+key-value pairs with high probability.
 
 
-\subsection{Сравнение геномов} 
-Известно, что при наличие двух фильтров Блума (обычных) для множеств A и B (соответственно $f_A$ и $f_B$), 
-фильтром Блума для объединения A и B будет $f_A \vee f_B$, а фильтром пересечения будет $f_A \wedge f_B$.
-
-При этом разность двух обратимых (но не устойчивых) фильтров Блума (count1 - count2, keyxor1 XOR keyxor2, valuesum1 - valuesum2)
-будет содержать разность множеств А и B со знаком + и разность множеств B и A со знаком -.
-
-
-\section{Текущие результаты}
-На данный момент (17.02.2022) изучена литература (\textcite{GoMi2011}) по теме, а также на C++ реализован работающий обратимый фильтр Блума.
-
-https://github.com/mmanchkin/bloom-lookup-table
-
-(репозиторий приватный и нужно запросить доступ)
+Such use case seems similar to the problem of comparing two DNA genomes: 
+since human DNA has around $3 \cdot 10^{9}$ positions but differs from other 
+human DNA in around $0.1\%$ of them. This work is dedicated to 
+searching ways to apply IBLT data structure to storing human genomes and 
+comparing it through filters containing them.
 
 
-Эксперименты по оптимизации и сравнению можно будет начать, когда будет доступ к данным генома.
+\section{Basic Terms and Definitions}
+
+\subsection{Bloom Filter}
+Usual Bloom Filter consists of a bit array (initially filled with zeros) and a set of k hash functions.
+It stores a set of any hashable elements using O(n) space (where n is number of
+elements in a set) with a very small constant --- since we are storing bits.
+
+Operations supported:
+\begin{itemize}
+    \item insert(x) --- method for adding x to a set. Works in O(k). Changes bitarray[hash(x)] to 1 for each of the k hash functions.
+    \item query(x) --- method for querying if element x in set. Works in O(k), can be false positive. Checks bitarray[hash(x)] for each of the k hash functions and returns false (the element is not in the filter) iff any of it equals 0.
+\end{itemize}
+
+\subsection{Invertible Bloom Lookup Table (IBLT) --- simple version}
+Invertible Bloom Lookup Table represents a map of key-value pairs where keys are
+hashable (values should also be hashable in case of fault tolerance which will 
+be described below). In this version we presume all keys are unique (so case of 
+(key1, value1) and (key1, value2) both inserted is impossible) and each pair 
+can't be added to filter more than once.
+
+n, m k, r represent respecively number of pairs in filter, number of cells in
+each array, number of hash functions and $\frac{m}{n}$
+
+IBLT consists of set of k hash functions and three arrays (each of size m):
+\begin{itemize}
+    \item keysum (or keyxor) --- stores sum of keys which mapped to the cell.
+    \item count --- stores number of pairs mapped to the cell.
+    \item valuesum (or valuexor) --- stores sum of values mapped to the cell.
+\end{itemize}
+
+IBLT uses O(n) space but compared to Bloom Filter its constant is signigicantly 
+higher since we store three (or more) arrays which contains integers or strings 
+instead of bits.
+
+IBLT supports the following methods:
+\begin{itemize}
+    \item insert(key, value) --- method for adding a key-value pair to the filter.
+        For each of the k hash functions it takes hash(key) and modifies all 
+        three arrays by incrementing count[hash(key)], adding key to 
+        keysum[hash(key)] and adding value to valuesum[hash(key)]. 
+
+        Time complexity is O(k).
+    \item remove(key, value) --- method for deleting key-value pair from the
+        filter for each of the k hash functions it modifies.
+
+        Time complexity is O(k).
+    \item get(key) --- method fot getting a value corresponding to the key.
+        Can return either "not found" \  if any of the count cells corresponding
+        to any of hash(key) equal 0, either value if any of the count cells 
+        equals 1, or "unknown" \ otherwise.
+
+        Time complexity is O(k).
+    \item list entries() --- method which clears the filter and lists all the 
+        key-value pairs it contained.
+
+        Searches through count array for 1 and after finding it removes the
+        key-value pair corresponding to the cell. This operation is repeated till
+        there are no 1 in count array. If the count array consists of 0, all the
+        entries were listed, otherwise some amount of key-value pairs is 
+        impossible to recover.
+
+        In this work we will focus on this operation since in case where two
+        filters store O(t) (where t is difference between two sets and where t
+        is insignificant to n) list entries can still list all the contents but 
+        get method will not work.
+
+        The filter in which all the entries can be recovered for simplicity we 
+        will call recoverable. Successfull get operation for all the contents 
+        implies recovarability but there is no implication in the other direction.
+        
+        We can be almost sure that the  
+
+        Time complexity depends on implementation.
+\end{itemize}
+
+\subsection{IBLT with fault tolerance additional check}
+
+The case when key-value pair is removed without insertion or the case when 
+both (key1, value1), (key1, value2) are inserted or removed can spoil get() and 
+list\_entries() operations. This happens since we can not rely on count array 
+(which we check to make sure the key in keysum field and the value in valuesum 
+field are the only ones mapped to this cell and are correct).
+
+To solve this problem \textcite{GoMi2011} propose an additional array: 
+hashvaluesum which stores sum of hashes of values mapped to the cell.
+
+With this modification checking the cell correctness turns into checking 
+that hash(valuesum[i]) corresponds to hashvaluesum[i] and count[i] equals 1 (or
+in case with deletions that hash(-valuesum[i]) = -hashvaluesum[i] and count[i] =
+-1).
+
+Since hash is not a linear function and almost certanly hash(x + y) != hash(x)
++ hash(y), we can be almost sure that equality of hash of sum and sum of hashes implies 
+that sum consists of one element and thus this element is the correct key (or value).
+
+The solution helps to identify and list only correct entries from the filter 
+but it is useless if we want to almost certanly list all the entries. For example,
+if a (key1, value1) pair is inserted and then a (key1, value2) pair is deleted 
+from the filter, the keysum field in the corresponding cells is empty (also the 
+count cell) but the value and hashvaluesum cells are poisoned. And although it
+doesn't influence correctness of result of list entries (thanks to hashvaluesum
+field) it does influence the probability of succsessfull list entries - since 
+all the cells corresponding to key1 are now not valid and thus useless.
+
+\subsection{IBLT with poisoning and unpoisoning cells operation}
+
+The problem described above can be solved with modification in list entries 
+algorithm and only if we have list of the poisoned keys with their values. 
+
+Iterating through the poisoned keys list we can try to insert a key-value pair
+(a, b) and if it was inserted and deleted with different values, for example, 
+(a, c) and there is a cell corresponding to hash(a) without collision, than this
+is what happens to the cell without collisions corresponding to one of the hashes 
+of a:
+\\ \\ 
+Before insertion of (a, c):
+\begin{tabular}{l | l}
+    keysum & 0 \\ \hline
+    count & 0 \\ \hline
+    valuesum & b - c \\ \hline
+    hashvaluesum & hash(b) - hash(c) \\
+\end{tabular}
+\\ \\
+
+After insertion of (a, c): \ \
+\begin{tabular}{l | l}
+    keysum & a \\ \hline
+    count & 1 \\ \hline
+    valuesum & b \\ \hline
+    hashvaluesum & hash(b) \\
+\end{tabular}
+\\ \\
+We can notice that hash(valusum) = hash(b) = hashvaluesum, so the conclusion 
+that we can make is that with high probability the cell is unpoisoned and we can
+restore pairs (a, b) and (a, c), then delete (a, b) and insert (a, c) to filter
+which will free a filter from a few collisions, which allows list entries to 
+restore more pairs. 
+\\ \\
+We can add further checks: for example hashkeysum (sum of hashes of mapped keys)
+and check if hash(a) = hashkeysum (that was proposed in paper), or just add 
+more hashvaluesum for different hash functions.
+\\ \\
+This way the algorithm of list entries becoms combination of classic list entries
+and iterating through poisoned pairs trying to unpoison their cells. Unpoisoning 
+and list entries should be repeated one after another till there are no possible 
+unpoisoning or listing.
+This way the only complexity becomes O(nm). 
+\\
+In the example where Alice compares her filter to Bobs by deleting her pairs 
+case of poisoned pairs can be solved by this new algorithm without Alice needing
+some additional information from Bob with just hers database.
+
+\section{Implementation}
+\subsection{Implementation particular characteristics}
+\begin{itemize}
+    \item Our implementation can be found on github via the following link:
+
+        https://github.com/mmanchkin/bloom-lookup-table
+
+    \item The Invertible Bloom Lookup Table is implemented in C++ due to its unbeatable
+speed. 
+    \item Besides speed advantage C++ provides smart overflow in integers 
+        (including int64t and others): 
+        
+        (x + y) - y = x even if (x + y) overflowed. This way all the operations
+        remain correct even if the filter is packed very tight.
+    \item The k hashes used in implementation are MurmurHash3 \textcite{repo} hashes with 
+different seeds.
+    \item Stress tests which evaluated the quality of IBLT use mt19937 random device
+        which is much more effective than C++ implemented pseudo random which generates
+predictable values.
+    \item The implementation due to the theme of the project uses strings as keys
+        and integers as values (this is the way genomes are stored) and instead 
+        of keysum field it stores keyxor field.
+    \item In the main.cpp file there are different stress tests. They can easily 
+        be executed by running, for example, test5() in void main(). The parameteres
+        are of the test can be managed easily in the main.cpp file.
+    \item The successes results of the simple version of IBLT (we define success as listing all the pairs) 
+        are similar to the results of \textcite{GoMi2011}. The precision in the
+        paper is greater due to technical advantage.
+    \item In \textcite{GoMi2011} for use case with Alice and Bob and their databases
+        authors proposed to Alice to delete all of her entries from Bobs filter.
+        But due to the specific of the operations it is enough to subtract their 
+        filters which takes O(m) operations not O(n). In our implementation 
+        subtraction method is also supported.
+    \item There are two classes Invertible Bloom Lookup Table and Subtracted 
+        Invertible Bloom Lookup Table. The first does not provide fault tolerance 
+        because of the specific of the project (for one genome packed in IBLT it
+        is not needed). Subtracted IBLT provides fault tolerance.
+    \item Insert, remove, get operations has complexity of O(k) in both classes. 
+    \item List entries in IBLT works in O(m) using a stack to store correct cells.
+    \item List entries in Subtracted IBLT works in O(mn).
+\end{itemize}
+\subsection{Experimenting with the implementation}
+
+\subsubsection{Recovery of a simple IBLT}
+Succeess rate for 3 and 4 hash functions. Each result (besides the last line) is 
+represented by 1000 simulations. 
+
+\\ \\
+\begin{center}
+\begin{tabular}{l | l | l | l | l | l} \hline \hline k = 3 \\ \hline
+    \hline n & $r = 1.22$ &  $r = 1.23$  &  $r = 1.3$ & $r = 1.4$ & $r = 1.5$\\ \hline
+    \hline \ 100 & 12.6 & 23.2 & 53 & 84.9 & 92.6 \\ \hline 
+    1000 & 24.4 & 42.7 & 98.7 & 99.6 & 99.7 \\ \hline
+    10000 & 25.6 & 81.7 & 99.9 & 99.7 & 99.9 \\ \hline
+    100000 & 18.0 & 100.0 & 100.0 & 100.0 & 100.0 \\ \hline
+% \end{tabular}
+% \\ \\ \\ \\  
+% \centering
+% \begin{tabular}{l | l | l | l | l | l}
+    \hline
+    k = 4 \\
+    \hline
+    \hline n & $r = 1.22$ &  $r = 1.23$  &  $r = 1.3$ & $r = 1.4$ & $r = 1.5$\\ \hline
+    \hline \ 100 & 0.4 & 1.5 & 23.4 & 79.1 & 95.3 \\ \hline 
+    1000 & 0 & 0 & 39.6 & 99.7 & 99.7 \\ \hline
+    10000 & 0 & 0 & 66.1 & 99.8 & 100.0 \\ \hline
+    100000 & 0 & 0 & 100.0 & 100.0 & 100.0 \\ \hline
+\end{tabular}
+\end{center}
+
+
+\subsubsection{Recovery of subtraction of two IBLT with different sizes.}
+
+See figure 1. The plot illustrates simulations (each dot is a result of 100 
+simulations)
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=1.3]{./different_sizes.jpg}
+\caption{Recovery rate of subtracted filters. Alices set of pairs has size of 
+10000. Bobs number of pairs correspond to plot lines. Number of hash functions equals 3.}  
+
+\end{figure}
+
+
+\subsubsection{Recovery of subtraction of two IBLT with the same number of pairs without poisoned keys}
+
+We can see that if Alice and Bob both have different sets of pairs they'll need 
+more space than usual m = 1.3 n. The appropriate success possibility is reached 
+with ratio around 3.
+\begin{center}
+\begin{tabular}{l | l | l | l | l | l} \hline \hline k = 3 \\ \hline
+    \hline n & $r = 1.23$ &  $r = 1.3$  &  $r = 1.5$ & $r = 2$ & $r = 3$\\ \hline
+    \hline \ 100 & 22.9 & 62.9 & 90.5 & 94.1 & 98.4 \\ \hline 
+    1000 & 42.7 & 83.9 & 90 & 95 & 98.8 \\ \hline
+    10000 & 78 & 92 & 86 & 100 & 99 \\ \hline
+% \end{tabular}
+% \\ \\ \\ \\  
+% \centering
+% \begin{tabular}{l | l | l | l | l | l}
+    \hline
+    k = 4 \\
+    \hline
+    \hline n & $r = 1.23$ &  $r = 1.3$  &  $r = 1.5$ & $r = 2$ & $r = 3$\\ \hline
+    \hline \ 100 & 0.3 & 19.9 & 83.6 & 91.1 & 98.2 \\ \hline 
+    1000 & 0 & 33.8 & 84.8 & 93 & 98.1 \\ \hline
+    10000 & 0 & 66 & 78 & 92 & 99 \\ \hline
+\end{tabular}
+\end{center}
+
+\subsubsection{Recovery of subtraction of two IBLT with different number of pairs with only poisoned keys}
+We can see that the results are close to the results of the recovery of a simple IBLT. 
+\begin{center}
+\begin{tabular}{l | l | l | l | l | l} \hline \hline k = 3 \\ \hline
+    \hline n & $r = 1.23$ &  $r = 1.3$  &  $r = 1.4$ & $r = 2$ & $r = 3$\\ \hline
+    \hline \ 100 & 10.9 & 31 & 59.2 & 94 & 99.2 \\ \hline 
+    1000 & 37.4 & 96.5 & 97.7 & 99.4 & 100 \\ \hline
+% \end{tabular}
+% \\ \\ \\ \\  
+% \centering
+% \begin{tabular}{l | l | l | l | l | l}
+    \hline
+    k = 4 \\
+    \hline
+    \hline n & $\frac{m}{n} = 1.23$ &  $\frac{m}{n} = 1.3$  &  $\frac{m}{n} = 1.4$ & $\frac{m}{n} 2$ & $\frac{m}{n} = 3$\\ \hline
+    \hline \ 100 & 0.3 & 8.7 & 52.7 & 97.3 & 99.3 \\ \hline 
+    1000 & 0 & 31.1 & 99.4 & 99.8 & 99.9 \\ \hline
+\end{tabular}
+\end{center}
+
+
+\subsubsection{Recovery of subtraction of two IBLT of the same size with different proportions of poisoned keys}
+See figure 3.
+
+\section{Human genomes and IBLT}
+\subsection{VCF}
+VCF stands for Variant Call Format. It stores multiple genomes in one file as 
+SNP differences between samples and reference genome. 
+In github repository with the IBLT implementation there is a cutted copy of a
+vcf file, more precisely its few columns containing POS, ID, REF, ALT and 4 SAMPLEs 
+from the original vcf file which was found and downloaded in a 1000 Genomes 
+Project \textcite{genomes} site.
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.25]{./vcf_format.jpg}
+\caption{Example of a VCF file containing first chromosome.
+}
+\end{figure}
+Columns of VCF file interesting to us:
+\begin{itemize}
+    \item CHROM --- number of the chromosome. In the example it is the 1 out
+        of 46 human chromosomes.
+    \item POS --- position of the SNP or InDels alligned to the reference genome
+        which is reference to all samples in a file.
+    \item REF --- value in the position in reference genome.
+    \item ALT --- alternative value for the position.
+    \item INFO --- in 1000 Genomes VCF these columnes are called as human 
+        identifiers. Each of 0|0 or 0|1 etc values represent SNP occurence in 
+        each of the chromosome alleles. For example 0|1 would represent that 
+        an SNP happened only in the second allele.   
+\end{itemize}
+\subsubsection{Storing genomes in IBLT}
+Storing a VCF in an IBLT is pointless because without reference we can't recover
+genome. If we store a reference then using IBLT is also pointless since VCF stores 
+it also in O(difference from reference) but with a signigicantly less constant.
+\subsubsection{Comparing genomes in IBLT}
+Results of experimenting with comparing two real genomes: \\
+62.2\% of successes in 1000 simulations with n = 100, k = 3, ratio = 3. \\
+11\% successes in 100 simulations with n = 1000, k = 3, ratio = 3. \\
+20\% successes in 10 simulations with n = 10000, k = 3, ratio = 3. \\
+
+Conclusions after simulations:
+\begin{itemize}
+    \item Success rate is too low.
+    \item Ratio was figured out in an experimental section, so even if 
+the persentage was good enough such big constant is not a good result.
+    \item Unpacking two genomes takes O(nm) time which is way too long since the
+        length of the genomes. 
+    \item Results also can be explained by small range of values of key-value 
+        pairs --- 0|1, 1|0, 1|1 --- were encoded to 1, 2, 3.
+\end{itemize}
+
+
+\section{Conclusions}
+Although Invertible Bloom Lookup Table is a really powerful data structure we 
+couldn't find how it can be applicable to storing and comparing human genomes. 
+Because of the big constant even theoreticaly we don't gain very much space. 
+Besides time complexity is too bad and can't be improved. 
+
+Thus without new ideas IBLT is not applicable to storing and comparing human genomes.
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.75]{./poisoned50.png}
+\caption{Recovery rate of subtraction of two filters (each has 1000 pairs) depending on
+number of poisoned keys.}
+\end{figure}
+
 
 %\begin{enumerate}
 %    \item Разработать алгоритм, восстанавливающий числа Бетти пространства по записи активности нейронов гиппокампа грызуна.

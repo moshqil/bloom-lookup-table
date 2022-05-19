@@ -21,6 +21,7 @@ def read_gatk_vcf(path):
 #with open("result.txt", 'w') as f:
 #    for elem in data:
 #        f.write(" ".join(map(str, elem)) + '\n')
+'''
 f1 = open("14chr_4genomes.txt", 'r') 
 f2 = open("14chr_first.txt", 'r')
 f3 = open("14chr_second.txt", 'r')
@@ -44,6 +45,25 @@ for line in f3:
         f5.write('2\n')
     if a[3] == "1|1":
         f5.write('3\n')
+'''
+
+f1 = open("14chr_f.txt", 'r')
+f2 = open("14chr_s.txt", 'r')
+max_l = 0
+i = 0
+for line in f1:
+    max_l = max(max_l, len(line))
+    i += 1
+    if i > 10000000:
+        break
+i = 0
+for line in f1:
+    max_l = max(max_l, len(line))
+    i += 1
+    if i > 10000000:
+        break
+    print(i)
+print(max_l)
 
 
 
