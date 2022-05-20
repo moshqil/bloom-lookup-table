@@ -27,7 +27,7 @@ struct KeyValuePair {
 
 class BloomLookupTable {
 public:
-int64_t n, m, k;
+int64_t n, m, k; // number of pairs, number of cells, number of hash functions
 double denom;
 int64_t string_size;
 vector<int64_t> count;
@@ -35,7 +35,7 @@ vector<string> keyxor;
 vector<int64_t> hashvaluesum;
 vector<int64_t> valuesum;
 
-    string str_xor(const string& str1_c, const string& str2_c) const {
+    string str_xor(const string& str1_c, const string& str2_c) const { // helper function for xoring strings
         int new_string_size = max(str1_c.size(), str2_c.size());
         string str1(new_string_size - str1_c.size(), ' ');
         string str2(new_string_size - str2_c.size(), ' ');
@@ -48,14 +48,14 @@ vector<int64_t> valuesum;
         return x_xor;
     }
 
-    uint64_t take_murmurhash(const string& x_str, int64_t seed) const {
+    uint64_t take_murmurhash(const string& x_str, int64_t seed) const { // helper function for taking murmurhash of the string
         uint64_t hash_otpt[2];
         const char* x = x_str.data();
         MurmurHash3_x64_128(x, (uint64_t)(x_str.size()), seed, hash_otpt);
         return hash_otpt[1] % m;
     }
 
-    uint64_t take_murmurhash_int64(int64_t value, int64_t seed) const {
+    uint64_t take_murmurhash_int64(int64_t value, int64_t seed) const { // helper function for taking murmurhash of int64_t
         uint64_t hash_otpt[2];
         const int64_t* x = &value;
         MurmurHash3_x64_128(x, (uint64_t)sizeof(value), seed, hash_otpt);
@@ -79,7 +79,7 @@ vector<int64_t> valuesum;
         valuesum.resize(m, 0);
     }
 
-    virtual void insert(string x_str, int64_t y) {
+    virtual void insert(string x_str, int64_t y) { // O(k)
         for (uint64_t seed = 0; seed < k; seed++) {
             uint64_t k_hash = take_murmurhash(x_str, seed);
 
@@ -90,7 +90,7 @@ vector<int64_t> valuesum;
         }
     }
 
-    virtual void remove(string x_str, int64_t y) {
+    virtual void remove(string x_str, int64_t y) { // O(k)
         for (uint64_t seed = 0; seed < k; seed++) {
             uint64_t k_hash = take_murmurhash(x_str, seed);
 
@@ -100,9 +100,9 @@ vector<int64_t> valuesum;
             valuesum[k_hash] -= y;
         }
     }
-
+    
     virtual int get(string x_str) const { // -1 if there is no such key with high probability, -2 if it's 100%
-        for (uint64_t seed = 0; seed < k; seed++) {
+        for (uint64_t seed = 0; seed < k; seed++) { // O(k)
             uint64_t k_hash = take_murmurhash(x_str, seed);
 
             if (count[k_hash] == 0) {
@@ -115,7 +115,7 @@ vector<int64_t> valuesum;
         return -1;
     }
 
-    Listed list_entries() {
+    Listed list_entries() { // O(n^2)
         Listed result;
         auto it = find(count.begin(), count.end(), 1);
         while (it != count.end()) {
@@ -128,7 +128,7 @@ vector<int64_t> valuesum;
         return result;
     }
 
-    Listed fast_list_entries() {
+    Listed fast_list_entries() { // O(n)
         Listed result;
         stack<int64_t> ones;
 
@@ -169,13 +169,13 @@ vector<int64_t> valuesum;
 };
 
 
-class BloomLookupTableSubstracted : public BloomLookupTable {
+class BloomLookupTableSubstracted : public BloomLookupTable { // for Alice and Bob use case
 public:
     BloomLookupTableSubstracted(int64_t n, int m, int k, int string_size)
         : BloomLookupTable(n, m, k, string_size) {
     }
 
-    vector<int64_t>::iterator find_alice() {
+    vector<int64_t>::iterator find_alice() { // helper function
         auto it = count.begin();
         int64_t index = it - count.begin();
 
@@ -190,7 +190,7 @@ public:
         return it;
     }
 
-    vector<int64_t>::iterator find_bob() {
+    vector<int64_t>::iterator find_bob() { // helper function
         auto it = count.begin();
         int64_t index = it - count.begin();
 
@@ -205,7 +205,7 @@ public:
         return it;
     }
 
-    Entries list_entries() {
+    Entries list_entries() { // O(n^2)
         Entries result;
         auto it_alice = find_alice();
         auto it_bob = find_bob();
@@ -230,7 +230,7 @@ public:
         return result;
     }
  
-    Entries fast_list_entries() {
+    Entries fast_list_entries() { // O(n)
         Entries result;
         stack<int64_t> ones_alice, ones_bob;
         int stack_size = 0;
@@ -321,7 +321,7 @@ public:
         return result;
     }
 
-    KeyValuePair unpoison(KeyValuePair& a) {
+    KeyValuePair unpoison(KeyValuePair& a) { // O(k)
         KeyValuePair result;
         result.key = a.key;
         result.empty = true;
@@ -346,7 +346,7 @@ public:
         return result;
     }
 
-    Entries poisoned_list_entries(vector<KeyValuePair>& bob_pairs) {
+    Entries poisoned_list_entries(vector<KeyValuePair>& bob_pairs) { // O(n * m)
         Entries result = fast_list_entries();
 
         vector<bool> bob_left(bob_pairs.size(), true);
@@ -358,8 +358,7 @@ public:
                 left--;
             }
         }
-
-        // cout << "left " << left << endl;
+        
         int u = 0;
         int j = 0;
         while (left > 0) {
@@ -370,7 +369,6 @@ public:
                 if (!bob_left[i]) {
                     continue;
                 }
-                // cout << bob_pair.key << " " << bob_pair.value << endl;
                 auto alice_pair = unpoison(bob_pair);
                 if (!alice_pair.empty) {
                     u++;
@@ -408,13 +406,11 @@ public:
                 }
             }
         }
-
-        // cout << "unpoisoned " << u << endl;
         return result;
     }
 };
 
-BloomLookupTableSubstracted subtraction(const BloomLookupTable& first, 
+BloomLookupTableSubstracted subtraction(const BloomLookupTable& first, // for Alice and Bob use case
         BloomLookupTable& second) {
     auto new_blt = BloomLookupTableSubstracted(first.n, first.m, first.k, 
             first.string_size);
