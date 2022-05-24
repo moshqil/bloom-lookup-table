@@ -27,12 +27,12 @@
 %\setStageTwo
 %\setStageFinal
 
-\setGroup{209}
+\setGroup{206}
 %сюда можно воткнуть картинку подписи
 % \setStudentSgn{\smash{\includegraphics[scale=0.25]{my-sig.png}}}
 \setStudentSgn{\includegraphics[scale=0.10]{my-sig.jpg}}
 % \setStudentSgn{\smash{kjdfl}}
-\setStudent{М.М.Марченко}
+\setStudent{М.М. Марченко}
 \setStudentDate{19.05.2022}
 \setAdvisor{Григорий Аронович Кучеров}
 \setAdvisorTitle{Ведущий научный сотрудник} %(научно-учебная лаборатория методов анализа больших данных)}
@@ -49,10 +49,10 @@
 \makeTitlePage
 
 \begin{abstract}
-    Invertible Bloom Lookup Table is a probabilistic data structure which
-    allows to pack and restore two similar objects using O(difference) space. In
-    this work we check if there are any applications for IBLT in storing and 
-    comparing human genomes.
+    Invertible Bloom Lookup Table is a probabilistic data structure for storing
+    key-value pairs. Notably it allows to pack and restore two 
+    similar objects using O(difference) space. In this work we experiment with 
+    this feature and try to apply it to storing and comparing human genomes.
 \end{abstract}
 % Здесь будет автоматически генерироваться содержание документа
 \tableofcontents
@@ -62,18 +62,18 @@
 \section{Introduction}
 
 Bloom Filter is probably one of the most recognizable probabilistic data
-structures. It is included in many algorithmic courses and broadly used.
+structures. It is included in many algorithmic courses and is broadly used.
 Bloom filter is a really powerful and smart data structure to store sets 
 of hashable elements in a binary array of size O(number of elements in set).
-However its functionality is very limited --- it only supports "add" operation
-and "get" query with a possible false positive result.%, it can't list all the elements it stores.
+However, its functionality is very limited --- it only supports "add"
+and "query" methods with a possible false positive result of query.%, it can't list all the elements it stores.
 
 The less known version of Bloom Filter was introduced by Michael T. Goodrich 
 and Michael Mitzenmacher in 2011 and was called Invertible Bloom Lookup 
 Table (also known as Invertible Bloom Filter). Unlike usual Bloom Filter 
 Invertible Bloom Filter stores key-value pairs and supports get query by 
 key and list-entries operation. As in usual Bloom Filter all the operations 
-succseed with high probability.
+succeed with high probability.
 
 
 In a paper (\textcite{GoMi2011}) which introduced IBLT one of the use cases suggested by authors 
@@ -81,22 +81,22 @@ describes two databases each owned by Alice and Bob with difference of size
 t, where t is insignificant compared to the size of the databases. In the 
 example Alice and Bob want to compare the databases, so Bob packs his 
 database in an Invertible Bloom Lookup Table of size O(t) and sends it to 
-Alice. Alice in turn using functionality of IBLT lists all of the Bob's 
+Alice. Alice, in turn using functionality of IBLT, lists all of the Bob's 
 key-value pairs with high probability.
 
 
-Such use case seems similar to the problem of comparing two DNA genomes: 
+Such a use case seems similar to the problem of comparing two DNA genomes: 
 since human DNA has around $3 \cdot 10^{9}$ positions but differs from other 
 human DNA in around $0.1\%$ of them. This work is dedicated to 
-searching ways to apply IBLT data structure to storing human genomes and 
-comparing it through filters containing them.
+searching for ways to apply IBLT data structure to storing and comparing
+human genomes.
 
 
 \section{Basic Terms and Definitions}
 
 \subsection{Bloom Filter}
 Usual Bloom Filter consists of a bit array (initially filled with zeros) and a set of k hash functions.
-It stores a set of any hashable elements using O(n) space (where n is number of
+It stores a set of any hashable elements using O(n) space (where n is a number of
 elements in a set) with a very small constant --- since we are storing bits.
 
 Operations supported:
@@ -112,18 +112,18 @@ be described below). In this version we presume all keys are unique (so case of
 (key1, value1) and (key1, value2) both inserted is impossible) and each pair 
 can't be added to filter more than once.
 
-n, m k, r represent respecively number of pairs in filter, number of cells in
+n, m k, r represent respectively number of pairs in filter, number of cells in
 each array, number of hash functions and $\frac{m}{n}$
 
 IBLT consists of set of k hash functions and three arrays (each of size m):
 \begin{itemize}
-    \item keysum (or keyxor) --- stores sum of keys which mapped to the cell.
-    \item count --- stores number of pairs mapped to the cell.
-    \item valuesum (or valuexor) --- stores sum of values mapped to the cell.
+    \item keysum (or keyxor) --- stores the sum of keys mapped to the cell.
+    \item count --- stores the number of pairs mapped to the cell.
+    \item valuesum (or valuexor) --- stores the sum of values mapped to the cell.
 \end{itemize}
 
-IBLT uses O(n) space but compared to Bloom Filter its constant is signigicantly 
-higher since we store three (or more) arrays which contains integers or strings 
+IBLT uses O(n) space but compared to Bloom Filter its constant is significantly 
+higher since we store three (or more) arrays which contain integers or strings 
 instead of bits.
 
 IBLT supports the following methods:
@@ -138,14 +138,14 @@ IBLT supports the following methods:
         filter for each of the k hash functions it modifies.
 
         Time complexity is O(k).
-    \item get(key) --- method fot getting a value corresponding to the key.
+    \item get(key) --- method for getting a value corresponding to the key.
         Can return either "not found" \  if any of the count cells corresponding
         to any of hash(key) equal 0, either value if any of the count cells 
         equals 1, or "unknown" \ otherwise.
 
         Time complexity is O(k).
     \item list entries() --- method which clears the filter and lists all the 
-        key-value pairs it contained.
+        key-value pairs it contains.
 
         Searches through count array for 1 and after finding it removes the
         key-value pair corresponding to the cell. This operation is repeated till
@@ -153,23 +153,34 @@ IBLT supports the following methods:
         entries were listed, otherwise some amount of key-value pairs is 
         impossible to recover.
 
-        In this work we will focus on this operation since in case where two
+        In this work we will focus on this operation, since in case where two
         filters store O(t) (where t is difference between two sets and where t
         is insignificant to n) list entries can still list all the contents but 
         get method will not work.
 
         The filter in which all the entries can be recovered for simplicity we 
-        will call recoverable. Successfull get operation for all the contents 
-        implies recovarability but there is no implication in the other direction.
+        will call recoverable. Successful get operation for all the contents 
+        implies recoverability but there is no implication in the other direction.
         
-        We can be almost sure that the  
 
-        Time complexity depends on implementation.
+        The filter is almost surely recoverable iff the ratio is greater than 
+        a designed threshold which was calculated by \textcite{GoMi2011} for each
+        k. For k = 3 which is mostly used in this work the designed ratio is 1.22.
+
+        Time complexity of the naive algorithm is $O(n^2)$ but can
+        be improved to $O(n)$.
 \end{itemize}
 
-\subsection{IBLT with fault tolerance additional check}
+For Alice-Bob use case described in the introduction the algorithm is the
+following: Alice who gets the Bob's filter, subtracts her filter from Bob's and
+than calls list entries with a modification: list entries searches now not only 
+for 1 in count field, it also searches for -1 in count field (Alice's pairs are 
+in filter with -1 and Bob's are with +1). Since all the common pairs canceled
+out with subtraction, for successful recovery the filter can be O(difference) size. 
 
-The case when key-value pair is removed without insertion or the case when 
+\subsection{IBLT with a fault tolerance check}
+
+The case when a key-value pair is removed without insertion or the case when 
 both (key1, value1), (key1, value2) are inserted or removed can spoil get() and 
 list\_entries() operations. This happens since we can not rely on count array 
 (which we check to make sure the key in keysum field and the value in valuesum 
@@ -183,7 +194,7 @@ that hash(valuesum[i]) corresponds to hashvaluesum[i] and count[i] equals 1 (or
 in case with deletions that hash(-valuesum[i]) = -hashvaluesum[i] and count[i] =
 -1).
 
-Since hash is not a linear function and almost certanly hash(x + y) != hash(x)
+Since hash is not a linear function and almost certainly hash(x + y) != hash(x)
 + hash(y), we can be almost sure that equality of hash of sum and sum of hashes implies 
 that sum consists of one element and thus this element is the correct key (or value).
 
@@ -193,15 +204,16 @@ if a (key1, value1) pair is inserted and then a (key1, value2) pair is deleted
 from the filter, the keysum field in the corresponding cells is empty (also the 
 count cell) but the value and hashvaluesum cells are poisoned. And although it
 doesn't influence correctness of result of list entries (thanks to hashvaluesum
-field) it does influence the probability of succsessfull list entries - since 
+field) it does influence the probability of successfull list entries - since 
 all the cells corresponding to key1 are now not valid and thus useless.
 
 \subsection{IBLT with poisoning and unpoisoning cells operation}
 
 The problem described above can be solved with modification in list entries 
-algorithm and only if we have list of the poisoned keys with their values. 
+algorithm and only if we have a list of the poisoned keys with their values which
+is given to the list entries operation. 
 
-Iterating through the poisoned keys list we can try to insert a key-value pair
+Iterating through the poisoned keys list, we can try to insert a key-value pair
 (a, b) and if it was inserted and deleted with different values, for example, 
 (a, c) and there is a cell corresponding to hash(a) without collision, than this
 is what happens to the cell without collisions corresponding to one of the hashes 
@@ -231,12 +243,12 @@ which will free a filter from a few collisions, which allows list entries to
 restore more pairs. 
 \\ \\
 We can add further checks: for example hashkeysum (sum of hashes of mapped keys)
-and check if hash(a) = hashkeysum (that was proposed in paper), or just add 
+and check if hash(a) = hashkeysum (that was proposed in the paper), or just add 
 more hashvaluesum for different hash functions.
 \\ \\
-This way the algorithm of list entries becoms combination of classic list entries
+This way the algorithm of list entries becomes a combination of classic list entries
 and iterating through poisoned pairs trying to unpoison their cells. Unpoisoning 
-and list entries should be repeated one after another till there are no possible 
+and list entries should be repeated one after another until there are no possible 
 unpoisoning or listing.
 This way the only complexity becomes O(nm). 
 \\
@@ -244,6 +256,14 @@ In the example where Alice compares her filter to Bobs by deleting her pairs
 case of poisoned pairs can be solved by this new algorithm without Alice needing
 some additional information from Bob with just hers database.
 
+With "unpoison" function we can now modify list entries to be tolerant to these 
+errors: for Alice-Bob use case after subtracting her filter and trying a usual 
+list entries, Alice iterates through her key-value pairs and with each pair tries
+to unpoison filter. After that she deletes all the unpoisoned hers and Bob's 
+key-value pairs and calls usual list entries again. Than she tries unpoisoning 
+again and etc. The list entries and unpoisoning operations are repeated one 
+after another since poisoned and not poisoned pairs can create collisions for 
+each other.
 \section{Implementation}
 \subsection{Implementation particular characteristics}
 \begin{itemize}
@@ -261,13 +281,13 @@ speed.
     \item The k hashes used in implementation are MurmurHash3 \textcite{repo} hashes with 
 different seeds.
     \item Stress tests which evaluated the quality of IBLT use mt19937 random device
-        which is much more effective than C++ implemented pseudo random which generates
+        which is much more effective than C++ implemented pseudo-random which generates
 predictable values.
     \item The implementation due to the theme of the project uses strings as keys
         and integers as values (this is the way genomes are stored) and instead 
         of keysum field it stores keyxor field.
     \item In the main.cpp file there are different stress tests. They can easily 
-        be executed by running, for example, test5() in void main(). The parameteres
+        be executed by running, for example, test5() in void main(). The parameters
         are of the test can be managed easily in the main.cpp file.
     \item The successes results of the simple version of IBLT (we define success as listing all the pairs) 
         are similar to the results of \textcite{GoMi2011}. The precision in the
@@ -283,14 +303,26 @@ predictable values.
         is not needed). Subtracted IBLT provides fault tolerance.
     \item Insert, remove, get operations has complexity of O(k) in both classes. 
     \item List entries in IBLT works in O(m) using a stack to store correct cells.
-    \item List entries in Subtracted IBLT works in O(mn).
+    \item List entries in Subtracted IBLT works in O(m) if there are no 
+        poisoned pairs and O(m $\cdot$ (number of 
+        poisoned keys)) otherwise.
 \end{itemize}
 \subsection{Experimenting with the implementation}
 
 \subsubsection{Recovery of a simple IBLT}
-Succeess rate for 3 and 4 hash functions. Each result (besides the last line) is 
-represented by 1000 simulations. 
+The table illustrates recovery rate depending on different n and ratio for k = 3 and k = 4.
 
+Success rate for 3 and 4 hash functions. Each result (besides the last line) is 
+represented by 1000 simulations. \\ 
+We can see that for similar ratios greater n has better results, this can be 
+explained by the following way. For each ratio the probability of a non empy 
+cell without collision is constant: $p_r$. Since for list entries succeed on each
+step of the algorithm there should be at least one such cell. The possibility of
+no such cell is $(1 - p_r)^n$ which increases with n. \\
+
+We can also see how designed threshold influences the success rate: for k = 3 it
+equals 1.22 and for n = 100000 success rate comes from 0 to 100 when ratio 
+changes from 1.22 to 1.23. We can also see that there is no such change for k = 4.
 \begin{center}
 \begin{tabular}{l | l | l | l | l | l} \hline \hline k = 3 \\ \hline
     \hline n & $r = 1.22$ &  $r = 1.23$  &  $r = 1.3$ & $r = 1.4$ & $r = 1.5$\\ \hline
@@ -314,15 +346,18 @@ represented by 1000 simulations.
 \end{center}
 
 
-\subsubsection{Recovery of subtraction of two IBLT with different sizes.}
+\subsubsection{Recovery of subtraction of two IBLT with different sizes}
 
 See figure 1. The plot illustrates simulations (each dot is a result of 100 
-simulations)
+simulations) with Alice-Bob case, where Alice has 10000 pairs and each plot 
+line corresponds to Bob's number of pairs. Number of hash functions is 3.
+Plot represents success rate (where success rate is percentage of fully 
+recovered simulations). m = ratio * Alice's n.
 
 \begin{figure}[h]
 \centering
 \includegraphics[scale=1.3]{./different_sizes.jpg}
-\caption{Recovery rate of subtracted filters. Alices set of pairs has size of 
+\caption{Recovery rate of subtracted filters. Alice's set of pairs has size of 
 10000. Bobs number of pairs correspond to plot lines. Number of hash functions equals 3.}  
 
 \end{figure}
@@ -330,9 +365,18 @@ simulations)
 
 \subsubsection{Recovery of subtraction of two IBLT with the same number of pairs without poisoned keys}
 
-We can see that if Alice and Bob both have different sets of pairs they'll need 
-more space than usual m = 1.3 n. The appropriate success possibility is reached 
-with ratio around 3.
+The next table represents Alice-Bob case where they have no intersecting keys. 
+Since they both have n pairs, m = 2 * n * ratio.
+\\
+We can see that the results are similar to the success rate of a simple IBLT:
+$f_A - f_B$ is recoverable only iff $f_{A \cup B}$ is recoverable. This happens 
+since list entries succeeds only if there is a non empty cell without collision 
+on every step of the algorithm. The cell has no collision in $f_{A \cup B}$ iff
+the cell has no collision in $f_{A} - f_{B}$. There is a slight possibility that 
+count of the cell with collision equals 1 (for example a cell with 2 Alice's pairs
+and 1 Bob's pair) and hash of sum coincidentally equals sum of hashes, which is 
+so rare that this possibility is negligible. 
+
 \begin{center}
 \begin{tabular}{l | l | l | l | l | l} \hline \hline k = 3 \\ \hline
     \hline n & $r = 1.23$ &  $r = 1.3$  &  $r = 1.5$ & $r = 2$ & $r = 3$\\ \hline
@@ -353,8 +397,12 @@ with ratio around 3.
 \end{tabular}
 \end{center}
 
-\subsubsection{Recovery of subtraction of two IBLT with different number of pairs with only poisoned keys}
-We can see that the results are close to the results of the recovery of a simple IBLT. 
+\subsubsection{Recovery of subtraction of two IBLT with the same number of pairs with only poisoned keys}
+We can see that the results are close to the results of the recovery of a simple IBLT.
+\\
+This similarity can be explained by the same logic as 3.2.3: $f_A - f_B$ recovers 
+only iff $f_A'$, where all the keys of A set has values equal to 
+$value_A - value_B$.
 \begin{center}
 \begin{tabular}{l | l | l | l | l | l} \hline \hline k = 3 \\ \hline
     \hline n & $r = 1.23$ &  $r = 1.3$  &  $r = 1.4$ & $r = 2$ & $r = 3$\\ \hline
@@ -375,13 +423,16 @@ We can see that the results are close to the results of the recovery of a simple
 
 
 \subsubsection{Recovery of subtraction of two IBLT of the same size with different proportions of poisoned keys}
-See figure 3. Each line represents number of hash functions.
+See figure 3. The plot illustrates the recoverability rate for Alice-Bob case
+for different number of hash functions, different ratios of poisoned keys and 
+ratios equal to 3 and 3.5 (m = 2 * n * ratio). Each line represents number of hash 
+functions.
 
 \section{Human genomes and IBLT}
 \subsection{VCF}
 VCF stands for Variant Call Format. It stores multiple genomes in one file as 
 SNP differences between samples and reference genome. 
-In github repository with the IBLT implementation there is a cutted copy of a
+In the github repository with the IBLT implementation there is a cut copy of a
 vcf file, more precisely its few columns containing POS, ID, REF, ALT and 4 SAMPLEs 
 from the original vcf file which was found and downloaded in a 1000 Genomes 
 Project \textcite{genomes} site.
@@ -395,19 +446,19 @@ Columns of VCF file interesting to us:
 \begin{itemize}
     \item CHROM --- number of the chromosome. In the example it is the 1 out
         of 46 human chromosomes.
-    \item POS --- position of the SNP or InDels alligned to the reference genome
+    \item POS --- position of the SNP or InDels aligned to the reference genome
         which is reference to all samples in a file.
     \item REF --- value in the position in reference genome.
     \item ALT --- alternative value for the position.
-    \item INFO --- in 1000 Genomes VCF these columnes are called as human 
-        identifiers. Each of 0|0 or 0|1 etc values represent SNP occurence in 
+    \item INFO --- in 1000 Genomes VCF these columns are called as human 
+        identifiers. Each of 0|0 or 0|1 etc values represent SNP occurrence in 
         each of the chromosome alleles. For example 0|1 would represent that 
         an SNP happened only in the second allele.   
 \end{itemize}
 \subsubsection{Storing genomes in IBLT}
 Storing a VCF in an IBLT is pointless because without reference we can't recover
 genome. If we store a reference then using IBLT is also pointless since VCF stores 
-it also in O(difference from reference) but with a signigicantly less constant.
+it also in O(difference from reference) but with a significantly less constant.
 \subsubsection{Comparing genomes in IBLT}
 Results of experimenting with comparing two real genomes: \\
 62.2\% of successes in 1000 simulations with n = 100, k = 3, ratio = 3. \\
@@ -417,8 +468,8 @@ Results of experimenting with comparing two real genomes: \\
 Conclusions after simulations:
 \begin{itemize}
     \item Success rate is too low.
-    \item Ratio was figured out in an experimental section, so even if 
-the persentage was good enough such big constant is not a good result.
+    \item Ratio is too big (that includes storing multiple arrays and IBLT
+        ratio > 1).
     \item Unpacking two genomes takes O(nm) time which is way too long since the
         length of the genomes. 
     \item Results also can be explained by small range of values of key-value 
@@ -427,13 +478,13 @@ the persentage was good enough such big constant is not a good result.
 
 
 \section{Conclusions}
-Although Invertible Bloom Lookup Table is a really powerful data structure we 
-couldn't find how it can be applicable to storing and comparing human genomes. 
-Because of the big constant even theoreticaly we don't gain very much space. 
-Besides time complexity is too bad and can't be improved. 
-
-Thus without new ideas IBLT is not applicable to storing and comparing human genomes.
-
+We experimented with an Invertible Bloom Lookup Table and got really good
+recoverability rate. IBLT is indeed a very powerful data structure - all its 
+variations showed close to 100 percentages with a relatively small ratios. 
+Despite all that, experiments with human genome showed negative results for 
+this use case: big ratios, small percentage and slow recovery. Thus, without 
+new ideas of packing or new ways of applying (we experimented only with packed 
+VCF) IBLT is not efficient for storing human genome.
 \begin{figure}[h]
 \centering
 \includegraphics[scale=0.75]{./poisoned50.png}
