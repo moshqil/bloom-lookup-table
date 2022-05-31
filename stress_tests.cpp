@@ -77,13 +77,6 @@ double stress_test_list_entries(int it_number, int n, int m, int k,
             successes--;
         }
 
-        // sort(result.keys.begin(), result.keys.end());
-        // sort(keys.begin(), keys.end());
-        
-        // if (keys != result.keys) {
-        //    successes--;
-        //}
-
     }
     return 100.0 * (successes / (double)it_number);
 }
@@ -168,9 +161,6 @@ double stress_test_poisoned(int it_number, int n_alice, int n_bob, int poisoned_
 
         Entries result = sub_BLT.poisoned_list_entries(bob_pairs);
 
-        int a = result.Alice.keys.size();
-        int b = result.Bob.keys.size();
-        int c = keys_p.size();
         if (result.Alice.keys.size() != (keys1.size() + keys_p.size()) ||
             result.Bob.keys.size() != (keys2.size() + keys_p.size())) {
             successes--;
