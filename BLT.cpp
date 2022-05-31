@@ -34,6 +34,7 @@ vector<int64_t> count;
 vector<string> keyxor;
 vector<int64_t> hashvaluesum;
 vector<int64_t> valuesum;
+string empty_string;
 
     string str_xor(const string& str1_c, const string& str2_c) const { // helper function for xoring strings
         int new_string_size = max(str1_c.size(), str2_c.size());
@@ -59,21 +60,23 @@ vector<int64_t> valuesum;
         uint64_t hash_otpt[2];
         const int64_t* x = &value;
         MurmurHash3_x64_128(x, (uint64_t)sizeof(value), seed, hash_otpt);
-        return hash_otpt[1] % m;
+        return hash_otpt[1];
     }
 
     BloomLookupTable(int64_t n, int m, int k, int string_size) : n(n), m(m), k(k), string_size(string_size) {
         count.resize(m, 0);
         denom = (double)m / (double)n;
-        string empty_string(string_size, 0);
-        keyxor.resize(m, empty_string);
+        empty_string = string(string_size, 0);
+        for (int i = 0; i < m; ++i) {
+            keyxor.push_back(empty_string);
+        }
         hashvaluesum.resize(m, 0);
         valuesum.resize(m, 0);
     }
 
     BloomLookupTable(int64_t n, double denom, int string_size) : n(n), m(denom * n), denom(denom), k(3), string_size(string_size) {
         count.resize(m, 0);
-        string empty_string(string_size, 0);
+        empty_string = string(string_size, 0);
         keyxor.resize(m, empty_string);
         hashvaluesum.resize(m, 0);
         valuesum.resize(m, 0);
@@ -236,12 +239,12 @@ public:
         int stack_size = 0;
 
         for (int64_t i = 0; i < count.size(); i++) {
-            if (count[i] == 1 &&
-            (take_murmurhash_int64(valuesum[i], 1) == hashvaluesum[i])) {
+            if ((count[i] == 1) &&
+                    (take_murmurhash_int64(valuesum[i], 1) == hashvaluesum[i])) {
                 ones_alice.push(i); stack_size++;
             }
-            if (count[i] == -1 &&
-            (take_murmurhash_int64(-valuesum[i], 1) == -hashvaluesum[i])) {
+            if ((count[i] == -1) &&
+                    (take_murmurhash_int64(-valuesum[i], 1) == -hashvaluesum[i])) {
                 ones_bob.push(i); stack_size++;
             }
         }
@@ -251,7 +254,7 @@ public:
                 auto ind_alice = ones_alice.top();
                 ones_alice.pop();
                 
-                if (!(count[ind_alice] == 1 &&
+                if (!((count[ind_alice] == 1) &&
                         (take_murmurhash_int64(valuesum[ind_alice], 1) == hashvaluesum[ind_alice]))) {
                     continue;
                 }
@@ -261,20 +264,20 @@ public:
                 
                 string x_str = keyxor[ind_alice];
                 int64_t y = valuesum[ind_alice];
-                for (uint64_t seed = 0; seed < k; seed++) {
-                    uint64_t k_hash = take_murmurhash(x_str, seed);
+                for (uint64_t i = 0; i < k; i++) {
+                    uint64_t k_hash = take_murmurhash(x_str, i);
 
                     count[k_hash] -= 1;
                     keyxor[k_hash] = str_xor(keyxor[k_hash], x_str);
                     hashvaluesum[k_hash] -= take_murmurhash_int64(y, 1);
                     valuesum[k_hash] -= y;
 
-                    if (count[k_hash] == 1 &&
+                    if ((count[k_hash] == 1) &&
                             (take_murmurhash_int64(valuesum[k_hash], 1) == hashvaluesum[k_hash])) {
                         ones_alice.push(k_hash); stack_size++;
                     }
 
-                    if (count[k_hash] == -1 &&
+                    if ((count[k_hash] == -1) &&
                             (take_murmurhash_int64(-valuesum[k_hash], 1) == -hashvaluesum[k_hash])) {
                         ones_bob.push(k_hash); stack_size++;
                     }
@@ -285,7 +288,7 @@ public:
                 auto ind_bob = ones_bob.top();
                 ones_bob.pop();
                 
-                if (!(count[ind_bob] == -1 &&
+                if (!((count[ind_bob] == -1) &&
                         (take_murmurhash_int64(-valuesum[ind_bob], 1) == -hashvaluesum[ind_bob]))) {
                     continue;
                 }
@@ -303,19 +306,16 @@ public:
                     hashvaluesum[k_hash] += take_murmurhash_int64(y, 1);
                     valuesum[k_hash] += y;
 
-                    if (count[k_hash] == -1 &&
+                    if ((count[k_hash] == -1) &&
                             (take_murmurhash_int64(-valuesum[k_hash], 1) == -hashvaluesum[k_hash])) {
                         ones_bob.push(k_hash); stack_size++;
                     }
 
-                    if (count[k_hash] == 1 &&
+                    if ((count[k_hash] == 1) &&
                             (take_murmurhash_int64(valuesum[k_hash], 1) == hashvaluesum[k_hash])) {
                         ones_alice.push(k_hash); stack_size++;
                     }
                 }
-            }
-            if (stack_size > 4 * m) {
-                break;
             }
         }
         return result;
@@ -328,14 +328,13 @@ public:
 
         for (uint64_t seed = 0; seed < k; seed++) {
             uint64_t k_hash = take_murmurhash(a.key, seed);
-            int64_t vsum = valuesum[k_hash] + a.value;
-            int64_t hofvsum = take_murmurhash_int64(valuesum[k_hash] + a.value, 1);
-            int64_t sumhash = (hashvaluesum[k_hash] + take_murmurhash_int64(a.value, 1));
 
+            if (valuesum[k_hash] == 0 && hashvaluesum[k_hash] == 0) {
+                continue;
+            }
             if ((count[k_hash] + 1 == 1) &&
-            ((hashvaluesum[k_hash] + take_murmurhash_int64(a.value, 1)) ==
-            take_murmurhash_int64(valuesum[k_hash] + a.value, 1))) {
-                // cout << "unpoison" << endl;
+                    ((hashvaluesum[k_hash] + take_murmurhash_int64(a.value, 1)) ==
+                    take_murmurhash_int64(valuesum[k_hash] + a.value, 1)) && keyxor[k_hash] == empty_string) {
                 result.value = valuesum[k_hash] + a.value;
                 result.empty = false;
                 insert(a.key, a.value);
@@ -358,11 +357,14 @@ public:
                 left--;
             }
         }
-        
+
         int u = 0;
         int j = 0;
         while (left > 0) {
             j++;
+            if (j > m * m) {
+                break;
+            }
             bool any_unpoisoned = false;
             for (int i = 0; i < bob_pairs.size(); i++) {
                 auto bob_pair = bob_pairs[i];
