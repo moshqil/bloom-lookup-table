@@ -1,6 +1,7 @@
 #include "stress_tests.cpp"
 #include <fstream>
 #include <string>
+#include <algorithm>
 
 
 void test1() {
@@ -47,8 +48,8 @@ void test2() {
 }
 
 void test3() {
-    vector<int> ns = {100000};
-    vector<double> denoms = {1.25, 1.3, 1.33, 1.36, 1.4, 1.5};
+    vector<int> ns = {100, 1000, 10000, 100000};
+    vector<double> denoms = {1.22, 1.23, 1.3, 1.4};
 
     int seed = 1;
 
@@ -56,6 +57,9 @@ void test3() {
         for (int n : ns) {
             for (auto denom : denoms) {
                 int num_tests = 1000;
+                if (n > 10000) {
+                    num_tests = 100;
+                }
                 cout << k << " " << n << " " << denom << " " << stress_test_list_entries(num_tests, n,
                             denom * n, k, 10, seed++) << endl;
                 // кол-во хеш функций - пар - отношение размера блум фильтра к парам - процент успехов
@@ -65,17 +69,16 @@ void test3() {
 }
 
 void test4() {
-    vector<int> ns_alice = {1000};
-    vector<double> denoms_sum = {3, 3.5};
-    vector<int> ns_bob = {1000};
+    vector<int> ns_alice = {1000, 10000, 100000};
+    vector<double> denoms_sum = {1.22, 1.23, 1.3, 1.5, 2};
+    vector<int> ns_bob = {1000, 10000, 100000};
 
-    int num_tests = 10000; int i = 0;
-    cout << "Hash f - Alice pairs - Bob pairs - Alice denom - Bob denom - SUCCESS PERCENTAGE" << endl;
+    int num_tests = 100; int i = 0;
     for (int k = 3; k <= 3; k++) {
         for (auto n_alice : ns_alice) {
             for (auto n_bob : ns_bob) {
                 for (auto denom_sum : denoms_sum) {
-                    if (n_bob > n_alice) {
+                    if (n_bob != n_alice) {
                         continue;
                     }
                     cout << k << " " << n_alice << " " << n_bob << " " << denom_sum << " " <<
@@ -91,27 +94,33 @@ void test4() {
 void test5() {
     int same = 1000;
     vector<int> ns_alice = {same};
-    vector<double> denoms_sum = {2, 3, 3.5};
+    vector<double> denoms_sum = {1.22, 1.23, 1.3, 1.4, 1.5};
     vector<int> ns_bob = {same};
 
-    int num_tests = 100; int i = 0;
-    cout << "Hash f - Alice pairs - Bob pairs - Alice denom - Bob denom - SUCCESS PERCENTAGE" << endl;
-    for (int k = 3; k <= 7; k++) {
+    int num_tests = 200; int i = 0;
+    for (int k = 3; k <= 3; k++) {
         for (auto n_alice : ns_alice) {
             for (auto n_bob : ns_bob) {
                 for (auto denom_sum : denoms_sum) {
                     if (n_bob > n_alice) {
                         continue;
                     }
-                    cout << k << " " << n_alice << " " << n_bob << " " << denom_sum << " " <<
-                         stress_test_poisoned(num_tests, n_alice, n_bob, same / 4,
-                                                                                (n_alice + n_bob) * denom_sum,
-                                                                                k, 10, i++) << " ";
-                    cout << stress_test_poisoned(num_tests, n_alice, n_bob, same / 2,
+
+                    cout << k << " " << n_alice << " " << n_bob << " " << denom_sum << " ";
+                    cout << stress_test_poisoned(num_tests, n_alice, n_bob, 0,
                                                  (n_alice + n_bob) * denom_sum,
                                                  k, 10, i++) << " ";
+                    cout << stress_test_poisoned(num_tests, n_alice, n_bob, same / 4,
+                                                                                (6 * same / 4 + same / 4) * denom_sum,
+                                                                                k, 10, i++) << " ";
+                    cout << stress_test_poisoned(num_tests, n_alice, n_bob, same / 2,
+                                                 (same + same / 2) * denom_sum,
+                                                 k, 10, i++) << " ";
                     cout << stress_test_poisoned(num_tests, n_alice, n_bob, 3 * same / 4,
-                                                 (n_alice + n_bob) * denom_sum,
+                                                 (same + same / 4) * denom_sum,
+                                                 k, 10, i++) << " ";
+                    cout << stress_test_poisoned(num_tests, n_alice, n_bob, same,
+                                                 (same) * denom_sum,
                                                  k, 10, i++) << endl;
                 }
             }
@@ -120,26 +129,23 @@ void test5() {
 }
 
 void test6() {
-    int same = 1000;
+    int same = 100;
     vector<int> ns_alice = {same};
-    vector<double> denoms_sum = {3, 3.5};
+    vector<double> denoms_sum = {1.23, 1.3, 1.4, 2, 3, 3.5};
     vector<int> ns_bob = {same};
 
-    int num_tests = 100; int i = 0;
-    cout << "Hash f - Alice pairs - Bob pairs - Alice denom - Bob denom - SUCCESS PERCENTAGE" << endl;
+    int num_tests = 1000; int i = 0;
     for (int k = 3; k <= 7; k++) {
         for (auto n_alice : ns_alice) {
             for (auto n_bob : ns_bob) {
                 for (auto denom_sum : denoms_sum) {
-                    for (int j = 0; j <= same; j+=50) {
-                        if (n_bob > n_alice) {
-                            continue;
-                        }
-                        cout << k << " " << n_alice << " " << n_bob << " " << denom_sum << " " << j << " ";
-                        cout << stress_test_poisoned(num_tests, n_alice, n_bob, j,
-                                                     (n_alice + n_bob) * denom_sum,
-                                                     k, 10, i++) << endl;
+                    if (n_bob > n_alice) {
+                        continue;
                     }
+                    cout << k << " " << n_alice << " " << n_bob << " " << denom_sum << " ";
+                    cout << stress_test_poisoned(num_tests, n_alice, n_bob, same,
+                                                     (n_alice) * denom_sum,
+                                                     k, 10, i++) << endl;
 
                 }
             }
@@ -147,61 +153,6 @@ void test6() {
     }
 }
 
-void test7() {
-    ifstream alice_genome("14chr_f.txt");
-    ifstream bob_genome("14chr_s.txt");
-
-    vector<string> alice_keys, bob_keys;
-    vector<int64_t> alice_values, bob_values;
-
-    string s1, s2; int n;
-
-    while (getline (alice_genome, s1)) {
-        alice_keys.push_back(s1);
-        getline(alice_genome, s2);
-        n = stoi(s2);
-        alice_values.push_back(n);
-    }
-
-    vector<KeyValuePair> bob_pairs;
-
-    while (getline (bob_genome, s1)) {
-        bob_keys.push_back(s1);
-        getline(bob_genome, s2);
-        n = stoi(s2);
-        bob_values.push_back(n);
-        bob_pairs.push_back({s1, n});
-    }
-
-    vector<double> denoms = {10};
-
-    for (auto denom : denoms) {
-        cout << denom << endl;
-        int m = denom * (alice_keys.size() + bob_keys.size());
-        int k = 3;
-        int string_size = 5;
-        auto BLT_a = BloomLookupTable(alice_keys.size(), m, k, 5);
-        auto BLT_b = BloomLookupTable(bob_keys.size(), m, k, 5);
-
-        for (int i = 0; i < alice_keys.size(); i++) {
-            BLT_a.insert(alice_keys[i], alice_values[i]);
-        }
-        for (int i = 0; i < bob_keys.size(); i++) {
-            BLT_b.insert(bob_keys[i], bob_values[i]);
-        }
-
-        auto BLT_sub = subtraction(BLT_a, BLT_b);
-
-        Entries difference = BLT_sub.poisoned_list_entries(bob_pairs);
-
-    }
-    cout << alice_keys.size() << endl;
-    cout << bob_keys.size() << endl;
-    //auto BLT_a = BloomLookupTable()
-
-    alice_genome.close();
-    bob_genome.close();
-}
 
 int main() {
     // test1();
@@ -210,5 +161,5 @@ int main() {
     // test4();
     // test5();
     // test6();
-    test5();
 }
+
